@@ -15,7 +15,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load flow JSON
 with open("questions.json", "r") as f:
     conversation_flow = json.load(f)
 
