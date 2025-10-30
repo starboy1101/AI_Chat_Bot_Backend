@@ -1,0 +1,78 @@
+Audio Processing Objects (APOs) — architecture and implementation notes
+
+What are APOs?
+Audio Processing Objects (APOs) are COM-based in-process objects that implement DSP-like audio effects (EQ, reverb, AEC, AGC, etc.) for Windows audio streams. APOs can be provided by drivers (hardware offload) or implemented in user-mode components for software effects. APOs are part of the Windows audio processing pipeline and are used by the audio engine to apply effects to audio streams. :contentReference[oaicite:32]{index=32}
+
+APO locations & types
+- System or engine APOs: global processing objects inserted by the OS/driver stack.  
+- Endpoint APOs: applied at the endpoint device level (per-driver).  
+- Render vs Capture APOs: APOs can be inserted into either render or capture paths depending on their purpose. :contentReference[oaicite:33]{index=33}
+
+Design & COM model
+- APOs are COM objects created and hosted in the audio engine's process. They must implement the APO interfaces defined by Microsoft (APO-specific COM interfaces) and adhere to strict real-time constraints. APOs typically have Initialize/Process/Reset semantics. :contentReference[oaicite:34]{index=34}
+
+Real-time constraints and best practices
+- APOs run on the audio processing thread and must be real-time safe: avoid heap allocations, locks that can block, and expensive system calls in the process path. Use pre-allocated buffers and lock-free structures when possible. :contentReference[oaicite:35]{index=35}
+
+Implementing APOs
+- Microsoft provides documentation and samples on implementing APO interfaces. Implementation tasks include registering the APO, handling buffer formats and alignment, processing frames in the requested format, and providing property queries for configuration. Hardware-offloaded APOs require additional driver support and specific packaging. Some implementation docs may be restricted to driver developers. :contentReference[oaicite:36]{index=36}
+
+Testing & deployment
+- Because APOs run in the audio stack, testing must cover correctness under different sample rates, channel configurations, and buffer sizes. For distribution, check driver signing and packaging requirements for driver-level APOs or the runtime requirements for user-mode APOs. :contentReference[oaicite:37]{index=37}
+
+Common APO uses
+- Effects: equalization, reverb, dynamic range compression.  
+- Communication features: Acoustic Echo Cancellation (AEC), Automatic Gain Control (AGC), noise suppression.  
+- Hardware offload: some APOs execute on device hardware or use driver-specific offload features to reduce CPU usage. :contentReference[oaicite:38]{index=38}
+
+References & next steps
+- APO architecture and implementing APO documentation (Microsoft). :contentReference[oaicite:39]{index=39}
+- Windows 11 APIs for APOs and hardware-offloaded APO details. :contentReference[oaicite:40]{index=40}
+
+# Audio Processing Object (APO) Architecture
+
+An Audio Processing Object (APO) is a modular audio effect unit that processes audio streams in Windows. APOs are inserted in the audio signal path to apply effects, filters, or enhancements.
+
+## Types of APOs
+
+1. **System Effects APOs**
+   - Applied globally to all audio on the device.
+   - Examples: Loudness equalization, bass boost, virtual surround.
+
+2. **Mode Effects APOs**
+   - Specific to a stream type (e.g., communication vs multimedia).
+
+3. **Local Effects APOs**
+   - Applied per-application basis using stream effects.
+
+4. **Hardware Offload APOs**
+   - Run directly on the device’s DSP, reducing CPU usage.
+
+## Key Components
+
+- **IAudioProcessingObject**: Base interface for all APOs.
+- **IAudioSystemEffects** and **IAudioSystemEffects2**: Manage system-wide effects.
+- **IAudioProcessingObjectConfiguration**: Used to configure APO parameters.
+
+## Signal Path
+Application → WASAPI → APOs → Audio Engine → Driver → Hardware
+
+APOs can be chained and configured via registry or INF files.
+
+## APO Registration
+- Registered in driver INF under HKR keys:
+  - `HKR,FX\\{GUID}` for system effects
+  - `HKR,APO` for custom APOs
+
+## Common APO Parameters
+- Gain
+- Crossover frequency
+- Noise suppression
+- Echo cancellation
+- Equalizer bands
+
+## Developing Custom APOs
+- Implement `IAudioProcessingObject` and `IUnknown`.
+- Configure properties in INF file.
+- Test using WASAPI exclusive mode or loopback capture.
+

@@ -1,0 +1,91 @@
+WASAPI — Windows Audio Session API (overview)
+
+Purpose
+WASAPI is the modern native API on Windows for audio I/O between applications and endpoint devices. It allows apps to play and capture PCM audio with control over latency, buffering mode, and format negotiation. WASAPI is the recommended API for native Windows audio apps (for low-latency, session-aware audio). :contentReference[oaicite:0]{index=0}
+
+Key components & interfaces
+- MMDevice API (IMMDeviceEnumerator, IMMDevice): enumerate audio endpoint devices and get device properties (render/capture endpoints, roles). :contentReference[oaicite:1]{index=1}  
+- IAudioClient: create and initialize audio streams, choose shared or exclusive mode, and negotiate formats. :contentReference[oaicite:2]{index=2}  
+- IAudioRenderClient / IAudioCaptureClient: write to (render) or read from (capture) the endpoint buffer after the IAudioClient is initialized. :contentReference[oaicite:3]{index=3}  
+- Audio sessions: WASAPI supports session-level controls and volume (per-session management) used by apps that play media.
+
+Shared vs Exclusive Mode
+- Shared mode: multiple apps can output to the device; audio engine mixes streams and may resample/format-convert. Preferred for compatibility. :contentReference[oaicite:4]{index=4}  
+- Exclusive mode: the app gets direct access to the hardware buffer and native device format. Lower-latency and no engine resampling, but denies other apps access while in use. Requires careful error handling if device is unavailable. :contentReference[oaicite:5]{index=5}
+
+Buffering & Latency
+- WASAPI supports event-driven (callback/event) and polling modes. Event-driven (AUDCLNT_STREAMFLAGS_EVENTCALLBACK) is preferred for low-latency streaming. In shared mode, the audio engine schedules the engine periodicity; in exclusive mode the app controls the buffer. Use engine periodicities and buffer-frame counts carefully to avoid xruns. :contentReference[oaicite:6]{index=6}
+
+Format negotiation
+- Typical flow: get device mix format (IAudioClient::GetMixFormat), decide whether to use that format (shared) or pass a chosen format (exclusive). If the engine resamples, expect additional latency. Always check HRESULTs for format support. :contentReference[oaicite:7]{index=7}
+
+Loopback capture
+- WASAPI supports loopback recording (capture of what is being played back) using the loopback flag. Useful for recording system playback without virtual drivers. :contentReference[oaicite:8]{index=8}
+
+Common workflow (rendering)
+1. Use IMMDeviceEnumerator to find endpoint device. :contentReference[oaicite:9]{index=9}  
+2. Activate IAudioClient on device.  
+3. Call IAudioClient::Initialize (or IAudioClient3::InitializeSharedAudioStream for low-latency shared mode). :contentReference[oaicite:10]{index=10}  
+4. Get IAudioRenderClient via IAudioClient::GetService.  
+5. Start the stream (IAudioClient::Start) and write frames with IAudioRenderClient::GetBuffer / ReleaseBuffer.  
+6. Stop and release interfaces when finished. :contentReference[oaicite:11]{index=11}
+
+Practical notes & gotchas
+- Use event-driven callbacks for low-latency and avoid busy-waiting. :contentReference[oaicite:12]{index=12}  
+- Driver/endpoint behavior varies across devices; not all drivers support tiny buffers or IAudioClient3 features. Test on multiple devices and check returned engine periodicities. :contentReference[oaicite:13]{index=13}  
+- Handle device removal/arrival (IMMNotificationClient) and session disconnects gracefully. :contentReference[oaicite:14]{index=14}
+
+References
+- Microsoft WASAPI overview and guidance. :contentReference[oaicite:15]{index=15}
+- WASAPI samples (Windows audio session samples). :contentReference[oaicite:16]{index=16}
+
+# Windows Audio Architecture Overview
+
+Windows Audio Architecture provides a framework for handling all audio playback and recording on the Windows operating system. It manages the routing, processing, and mixing of audio streams between applications and hardware devices.
+
+## Core Components
+
+1. **WASAPI (Windows Audio Session API)**  
+   - Introduced in Windows Vista to replace DirectSound as the low-latency audio interface.
+   - Provides exclusive and shared modes for audio streaming.
+   - Used to access audio endpoint devices (speakers, microphones, loopback, etc.).
+   - Supports event-driven and polling-driven buffer management.
+
+2. **Audio Engine**
+   - Mixes multiple application streams in shared mode.
+   - Handles volume levels, sample rate conversions, and effects.
+   - Interacts with the Audio Device Graph (KSAUDIO) and kernel streaming (KS) layers.
+
+3. **MMDevice API**
+   - Manages audio devices and allows enumeration of playback and capture endpoints.
+   - Interfaces like `IMMDeviceEnumerator` and `IMMDevice` provide device access.
+
+4. **Audio Clients**
+   - `IAudioClient`, `IAudioClient2`, and `IAudioClient3` define audio stream management interfaces.
+   - They configure buffer sizes, stream formats, and data flow between the application and the hardware.
+
+5. **Endpoint Modes**
+   - **Shared Mode:** Audio data passes through the system mixer.
+   - **Exclusive Mode:** Application directly accesses the audio endpoint (lowest latency).
+
+6. **Loopback Capture**
+   - Allows recording of the system's audio output.
+   - Commonly used for screen recording, streaming, and diagnostics.
+
+7. **Audio Processing Objects (APOs)**
+   - Apply audio effects or signal processing to the audio stream.
+   - Includes system, user, and hardware APOs.
+   - Managed through the Audio Engine and driver stack.
+
+## Key APIs
+- `IAudioClient3`
+- `IAudioRenderClient`
+- `IAudioCaptureClient`
+- `IMMDeviceEnumerator`
+- `IMMNotificationClient`
+
+## Low-Latency Audio
+- Event-driven buffering reduces CPU load.
+- Use `AUDCLNT_STREAMFLAGS_EVENTCALLBACK` for event-based processing.
+- Exclusive mode gives sub-10ms latency if hardware supports it.
+
