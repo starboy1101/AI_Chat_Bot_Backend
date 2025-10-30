@@ -1,0 +1,47 @@
+# Windows Audio Engine Pipeline
+
+The Windows Audio Engine is responsible for mixing, processing, and routing audio streams between applications and hardware endpoints.
+
+## Audio Flow Overview
+1. **Application Layer**
+   - Applications use WASAPI, Media Foundation, or DirectSound to send or capture audio.
+   - Audio streams are represented in PCM (Pulse Code Modulation) format or compressed formats like AAC or MP3.
+
+2. **Audio Session**
+   - Each application session is managed by the Audio Session Manager (ASM).
+   - Handles volume levels, ducking, and independent mute control per app.
+
+3. **Audio Engine (User Mode)**
+   - Mixes multiple application streams into one master stream for the device.
+   - Performs resampling, format conversion, and audio effects via APOs.
+   - Communicates with the kernel-mode audio stack using Audio Graph Manager.
+
+4. **Audio Effects (APOs)**
+   - Inserted between the Audio Engine and endpoint.
+   - Can perform bass boost, spatialization, loudness equalization, etc.
+
+5. **Kernel Streaming (KS)**
+   - The Kernel Streaming subsystem handles low-level audio data transfers.
+   - Uses miniport drivers to communicate with hardware via DMA buffers.
+
+6. **Hardware Endpoint**
+   - Final layer where the DAC (Digital-to-Analog Converter) converts digital audio into analog signals for speakers or headphones.
+
+## Data Path Example
+Application → WASAPI → Audio Engine → APO Chain → Port Class Driver → Miniport Driver → Hardware
+
+## Processing Modes
+- **Shared Mode:** Audio Engine mixes multiple clients.
+- **Exclusive Mode:** Application directly controls hardware buffers.
+- **Raw Mode:** Bypasses APOs and system effects.
+
+## Important APIs
+- `IAudioSessionManager2`
+- `IAudioStreamVolume`
+- `IAudioClock`
+- `IAudioRenderClient` / `IAudioCaptureClient`
+
+## Mixing and Latency
+- Default shared-mode latency ≈ 10–30 ms.
+- Exclusive mode latency can reach < 5 ms depending on hardware and driver support.
+

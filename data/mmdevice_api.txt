@@ -1,0 +1,57 @@
+# MMDevice API (Multimedia Device API)
+
+The MMDevice API is part of the Windows Core Audio APIs and is used to enumerate and manage audio endpoint devices.
+
+## Overview
+- Provides interfaces for accessing playback and recording devices.
+- Works with WASAPI and device notification systems.
+- Useful for selecting or switching default audio devices programmatically.
+
+## Core Interfaces
+1. **IMMDeviceEnumerator**
+   - Used to list all active audio endpoints.
+   - Can register notifications for device state changes.
+   - Example methods:
+     - `EnumAudioEndpoints(EDataFlow, DEVICE_STATE_ACTIVE, IMMDeviceCollection**)`
+     - `GetDefaultAudioEndpoint(EDataFlow, ERole, IMMDevice**)`
+
+2. **IMMDevice**
+   - Represents a single audio device.
+   - Provides access to its properties and activation.
+   - Key methods:
+     - `GetId()`
+     - `OpenPropertyStore()`
+     - `Activate()`
+
+3. **IMMNotificationClient**
+   - Receives real-time notifications when devices are added, removed, or default device changes.
+   - Useful for real-time UIs in audio apps.
+
+## Device Roles
+- **eConsole** – Default for multimedia playback.
+- **eCommunications** – Default for voice communication apps.
+- **eMultimedia** – Default for music or general audio.
+
+## Device State Constants
+- `DEVICE_STATE_ACTIVE`
+- `DEVICE_STATE_DISABLED`
+- `DEVICE_STATE_NOTPRESENT`
+- `DEVICE_STATE_UNPLUGGED`
+
+## Example Workflow
+1. Create an instance of `IMMDeviceEnumerator`.
+2. Enumerate devices using `EnumAudioEndpoints`.
+3. For each device, retrieve its friendly name via `IPropertyStore`.
+4. Use `IMMDevice::Activate()` to create an `IAudioClient3`.
+
+## Notifications
+- Register an `IMMNotificationClient` to get notified about:
+  - Device addition/removal
+  - State changes
+  - Default device switching
+
+## Example Applications
+- Audio control panels
+- Real-time device managers
+- System audio switchers
+

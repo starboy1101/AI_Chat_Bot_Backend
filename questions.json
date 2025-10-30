@@ -1,0 +1,182 @@
+{
+  "start": {
+    "id": "start",
+    "text": "Great! What kind of service are you looking for?",
+    "options": [
+      { "label": "Porting", "next": "Porting_type" },
+      { "label": "Optimization", "next": "Optimization_type" },
+      { "label": "Audio App", "next": "App_type" }
+    ]
+  },
+
+    "Optimization_type": {
+    "id": "Optimization_type",
+    "text": "Cool! Which type of Optimization do you want ?",
+    "options": [
+      { "label": "Design level", "next": "DSP_Processor" },
+      { "label": "Intrinsic", "next": "DSP_Processor" }
+    ]
+  },
+
+    "App_type": {
+    "id": "App_type",
+    "text": "Cool! What type of APP do you want ?",
+    "options": [
+      { "label": "Windows based", "next": "final_step" },
+      { "label": "Android based", "next": "final_step" }
+    ]
+  },
+
+  "Porting_type": {
+    "id": "Porting_type",
+    "text": "To move ahead, please answer a few questions related to porting.",
+    "options": [
+      { "label": "Yes", "next": "Porting_question_1" },
+      { "label": "No", "next": "end"}
+    ]
+  },
+
+  "Porting_question_1": {
+    "id": "Porting_question_1",
+    "text": "On which target the audio algorithm is running?",
+    "type": "input",
+    "next": "Porting_question_2"
+  },
+
+  "Porting_question_2": {
+    "id": "Porting_question_2",
+    "text": "Is there a requirenment for Cross Compliance? ",
+    "type": "input",
+    "next": "DSP_Processor"
+  },
+
+  "DSP_Processor": {
+    "id": "DSP_Processor",
+    "text": "Got it. Now, which type of processor do you need?",
+    "options": [
+      { "label": "Qualcom Hexagon", "next": "Audio_Interface" },
+      { "label": "HiFi 3", "next": "Application" },
+      { "label": "HiFi 4", "next": "Application" },
+      { "label": "HiFi 5", "next": "Application" },
+      { "label": "TI C6000", "next": "Application" },
+      { "label": "TI C7000", "next": "Application" }
+    ]
+  },
+
+  "Application": {
+    "id": "Application",
+    "text": "Cool! What type of application do you want ?",
+    "options": [
+      { "label": "Arm", "next": "Audio_Interface" },
+      { "label": "Intel", "next": "Audio_Interface" },
+      { "label": "AMID", "next": "Audio_Interface" }
+    ]
+  },
+
+  "Audio_Interface": {
+    "id": "Audio_Interface",
+    "text": "Understood. Which type of audio interface do you want?",
+    "options": [
+      { "label": "Elite Framework", "next": "Algo_req" },
+      { "label": "Audio Reach Framework", "next": "Algo_req" },
+      { "label": "Capi V1/V2 Audio Interface", "next": "Algo_req" }
+    ]
+  },
+
+  "Algo_req": {
+    "id": "Algo_req",
+    "text": "Great! Please answer a few questions for Specific Requirenment.",
+    "options": [
+      { "label": "Yes", "next": "Requirenment_question_1" },
+      { "label": "No", "next": "end"}
+    ]
+  },
+
+  "Requirenment_question_1": {
+    "id": "Requirenment_question_1",
+    "text": "What will be the Sample Rate?",
+    "type": "input",
+    "next": "Requirenment_question_2"
+  },
+
+  "Requirenment_question_2": {
+    "id": "Requirenment_question_2",
+    "text": "What will be the Bit Depth?",
+    "type": "input",
+    "next": "Requirenment_question_3"
+  },
+
+    "Requirenment_question_3": {
+    "id": "Requirenment_question_3",
+    "text": "What will be the Sample Size?",
+    "type": "input",
+    "next": "Requirenment_question_4"
+  },
+
+    "Requirenment_question_4": {
+    "id": "Requirenment_question_4",
+    "text": "What will be the Block Size(Per processor)?",
+    "type": "input",
+    "next": "final_step"
+  },
+
+  "final_step": {
+    "id": "final_step",
+    "text": "Awesome! Your requirements have been noted down. Please review your summary before we proceed further.",
+    "options": [
+      { "label": "See Summary", "next": "show_summary" },
+      { "label": "Move Ahead Without Summary", "next": "submit_response" }
+    ]
+  },
+
+  "show_summary": {
+    "id": "show_summary",
+    "text": "The summary of your requirements:\n\n{{summary}}\n\nWould you like to make any changes?",
+    "options": [
+      { "label": "Make Changes", "next": "make_changes" },
+      { "label": "Move Ahead", "next": "submit_response" }
+    ]
+  },
+
+  "make_changes": {
+    "id": "make_changes",
+    "text": "Please enter the number of the question you'd like to change (e.g., 1, 2, 3).",
+    "expect_user_input": true
+  },
+
+  "await_new_answer": {
+    "id": "await_new_answer",
+    "text": "Please enter your new answer for the selected question:",
+    "expect_user_input": true,
+    "next": "show_updated_summary"
+  },
+
+  "show_updated_summary": {
+    "id": "show_updated_summary",
+    "text": "Got it! I've updated your requirements based on your changes.\n\nHere’s your updated summary:\n\n{{updated_summary}}\n\nWould you like to proceed?",
+    "options": [
+      { "label": "Yes, Move Ahead", "next": "submit_response" },
+      { "label": "Make More Changes", "next": "make_changes" }
+    ]
+  },
+
+  "submit_response": {
+    "id": "submit_response",
+    "text": "Thank you! Your requirements have been successfully submitted. Our team will get back to you shortly.",
+    "options": []
+  },
+
+  "mistake_prompt": {
+    "id": "mistake_prompt",
+    "options": [
+      { "label": "Yes", "next": "start" },
+      { "label": "No",  "next": "end" }
+    ]
+  },
+
+  "end": {
+    "id": "end",
+    "text": "No problem! You can start again anytime by saying 'Try your service'.",
+    "in_flow": false
+  }
+}
