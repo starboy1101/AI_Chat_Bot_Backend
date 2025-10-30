@@ -1,0 +1,7 @@
+langchain
+sentence-transformers
+gradio
+flask
+pypdf
+faiss-cpu
+llama-cpp-python

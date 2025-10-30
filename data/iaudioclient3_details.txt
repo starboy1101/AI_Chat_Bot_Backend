@@ -1,0 +1,95 @@
+IAudioClient3 — details and usage (low-latency shared-mode features)
+
+Overview
+IAudioClient3 is an evolution of IAudioClient/IAudioClient2 that exposes additional methods for querying engine periodicities and initializing shared-mode streams with explicit periodicity — enabling lower-latency shared-mode playback/capture when supported by the audio engine and driver. Use IAudioClient3 when you need fine-grained control over engine periodicity for event-driven low-latency shared-mode streaming. :contentReference[oaicite:17]{index=17}
+
+Important methods
+- GetSharedModeEnginePeriod: returns the device/engine periodicity range for a stream format (default, minimum and maximum periodicities). This helps you choose a periodicity that the engine supports. :contentReference[oaicite:18]{index=18}  
+- InitializeSharedAudioStream: initializes a shared-mode stream with the requested periodicity. Parameters include stream flags (e.g., AUDCLNT_STREAMFLAGS_EVENTCALLBACK), periodicity (in frames), format, and session GUIDs. Use this to request a specific engine wake rate for the event-driven model. :contentReference[oaicite:19]{index=19}
+
+Typical sequence (using IAudioClient3)
+1. Acquire endpoint device via IMMDeviceEnumerator and call Activate to get IAudioClient/IAudioClient3. :contentReference[oaicite:20]{index=20}  
+2. Query device mix format (GetMixFormat) and choose your wave format (WAVEFORMATEX/WAVEFORMATEXTENSIBLE). :contentReference[oaicite:21]{index=21}  
+3. Call GetSharedModeEnginePeriod to discover supported periodicities (DP/FP/MINP/MAXP). Use those to pick a practical periodicity (frames per engine wake). :contentReference[oaicite:22]{index=22}  
+4. Call InitializeSharedAudioStream with AUDCLNT_STREAMFLAGS_EVENTCALLBACK (and other flags as needed), specifying the chosen periodicity and your format. :contentReference[oaicite:23]{index=23}  
+5. Obtain IAudioRenderClient/IAudioCaptureClient via GetService, then use GetBuffer / ReleaseBuffer to write/read frames on event notifications. :contentReference[oaicite:24]{index=24}
+
+Stream flags to know
+- AUDCLNT_STREAMFLAGS_EVENTCALLBACK: event-driven buffer processing (recommended for low-latency). :contentReference[oaicite:25]{index=25}  
+- AUDCLNT_STREAMFLAGS_LOOPBACK: capture output stream data for loopback recording. :contentReference[oaicite:26]{index=26}
+
+Buffer management
+- After initialization, call GetBufferSize to find the buffer frame count. On each event wake: call GetCurrentPadding to know how many frames are queued/consumed, compute available frames, call GetBuffer to obtain a pointer, write/read audio frames, and call ReleaseBuffer with the number of frames processed. Correct calculations around padding and buffer wrap are essential to avoid glitches. :contentReference[oaicite:27]{index=27}
+
+Real-time considerations
+- Use a real-time safe thread when processing audio buffers (avoid allocating memory/locks in the hot path). If using event callbacks, use a high-priority thread and minimize expensive calls inside the callback. Consider the Windows Real-Time Work Queue API where applicable. :contentReference[oaicite:28]{index=28}
+
+Device variability & compatibility
+- Not all audio drivers or devices fully support the lowest periodicities. Test for support using GetSharedModeEnginePeriod and provide robust fallbacks (use larger periodicity or exclusive mode when needed). Some integrated Realtek or generic drivers may not expose IAudioClient3 features. :contentReference[oaicite:29]{index=29}
+
+Example pseudocode (render):
+  1. device = EnumDefaultAudioEndpoint(...)
+  2. audioClient3 = device.Activate(IAudioClient3)
+  3. mixFormat = audioClient3.GetMixFormat()
+  4. (dp, fp, minp, maxp) = audioClient3.GetSharedModeEnginePeriod(mixFormat)
+  5. chosenPeriod = max(minp, desiredFrames)
+  6. audioClient3.InitializeSharedAudioStream(flags=EVENTCALLBACK, periodicity=chosenPeriod, format=mixFormat)
+  7. renderClient = audioClient3.GetService(IAudioRenderClient)
+  8. Start stream; on event: GetBuffer -> write -> ReleaseBuffer
+
+References
+- IAudioClient3 docs and methods. :contentReference[oaicite:30]{index=30}
+- Examples and community discussions on using InitializeSharedAudioStream for low-latency. :contentReference[oaicite:31]{index=31}
+
+# IAudioClient3 Interface (Windows Core Audio API)
+
+IAudioClient3 is the latest evolution of the Windows audio client interface, introduced to optimize low-latency and power-efficient audio streaming.
+
+## Purpose
+It extends IAudioClient2 to support audio offloading, shared-mode improvements, and better control over buffer sizes and performance modes.
+
+## Key Methods
+
+1. **InitializeSharedAudioStream()**
+   - Initializes a shared-mode audio stream with a given format and buffer size.
+   - Reduces overhead compared to exclusive mode.
+
+2. **GetSharedModeEnginePeriod()**
+   - Returns supported period (latency) values for shared-mode.
+   - Useful for fine-tuning latency and buffer performance.
+
+3. **GetCurrentSharedModeEnginePeriod()**
+   - Returns the currently active shared-mode period for the stream.
+
+4. **SetClientProperties()**
+   - Allows configuration of stream properties like category, options, and audio policy.
+
+## Performance Modes
+- **Raw Mode:**  
+  - Uses `AUDCLNT_STREAMFLAGS_RAW`.
+  - Bypasses system audio processing and effects.
+  - Suitable for precise signal analysis or professional audio tools.
+
+- **Default Mode:**  
+  - Passes audio through system effects and enhancements.
+  - Used for normal playback or communication applications.
+
+## Buffer Management
+- Applications call `IAudioRenderClient::GetBuffer()` and `ReleaseBuffer()` to feed samples.
+- Use event-driven callbacks for efficient processing.
+- In capture mode, data is read using `IAudioCaptureClient::GetBuffer()`.
+
+## Stream Flags
+- `AUDCLNT_STREAMFLAGS_EVENTCALLBACK`
+- `AUDCLNT_STREAMFLAGS_LOOPBACK`
+- `AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM`
+- `AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY`
+- `AUDCLNT_STREAMFLAGS_RAW`
+
+## Example Workflow
+1. Use `IMMDeviceEnumerator` to find the desired endpoint.
+2. Call `IMMDevice::Activate()` to get `IAudioClient3`.
+3. Query engine periods and initialize the stream.
+4. Get `IAudioRenderClient` or `IAudioCaptureClient`.
+5. Process audio in real time using event notifications.
+
