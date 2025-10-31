@@ -6,4 +6,3 @@ llama-cpp-python
 langchain-core
 supabase
 pypdf
-supabase-py
