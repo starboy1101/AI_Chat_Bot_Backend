@@ -145,7 +145,7 @@ def generate_answer(query):
     # Greeting Detection
     if is_greeting(query):
         return (
-            "👋 Hello! I’m InfoTune.\n\n"
+            "👋 Hello! I’m SwarAI.\n\n"
             "I can help you understand and solve queries related to WASAPI, IAudioClient, APOs, "
             "audio processing, and other Windows audio architecture topics.\n\n"
             "Ask me anything related to audio!"

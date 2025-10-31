@@ -1,7 +1,9 @@
-langchain
+fastapi
+uvicorn
 sentence-transformers
-gradio
-flask
-pypdf
 faiss-cpu
 llama-cpp-python
+langchain-core
+supabase
+pypdf
+supabase-py
