@@ -1,4 +1,5 @@
 FROM python:3.10-slim
+FROM huggingface/transformers-pytorch-cpu:latest
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
