@@ -15,6 +15,10 @@ for path in cache_paths:
     except Exception as e:
         print(f"Could not clear {path}: {e}")
 
+os.environ["HF_HOME"] = "/tmp/hf_home"
+os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
+
 import re
 import pickle
 import faiss
