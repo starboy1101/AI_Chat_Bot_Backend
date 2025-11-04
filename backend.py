@@ -12,6 +12,17 @@ from supabase import create_client, Client
 # ============================================
 # Environment Setup
 # ============================================
+
+# Redirect Hugging Face and Sentence Transformers cache
+os.environ["HF_HOME"] = "/tmp/hf_home"
+os.environ["TRANSFORMERS_CACHE"] = "/tmp/hf_cache"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
+
+# Make sure directories exist
+os.makedirs("/tmp/hf_home", exist_ok=True)
+os.makedirs("/tmp/hf_cache", exist_ok=True)
+os.makedirs("/tmp/st_cache", exist_ok=True)
+
 os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
