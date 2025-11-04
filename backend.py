@@ -19,6 +19,9 @@ os.environ["HF_HOME"] = "/tmp/hf_home"
 os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
 os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
 
+os.makedirs("/tmp/hf_home", exist_ok=True)
+os.makedirs("/tmp/st_cache", exist_ok=True)
+
 import re
 import pickle
 import faiss
