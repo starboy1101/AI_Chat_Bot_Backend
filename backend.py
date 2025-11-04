@@ -1,22 +1,19 @@
-import os
+import shutil, os
 
-# ============================================
-# Environment Setup
-# ============================================
+cache_paths = [
+    "/.cache/huggingface",    
+    "/root/.cache/huggingface",
+    "/tmp/hf_home",
+    "/tmp/hf_cache",
+    "/tmp/st_cache"
+]
 
-# Redirect Hugging Face and Sentence Transformers cache
-os.environ["HF_HOME"] = "/tmp/hf_home"
-os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
-os.environ["HF_HUB_CACHE"] =  "/tmp/hf_home"
-
-# Make sure directories exist
-os.makedirs("/tmp/hf_home", exist_ok=True)
-os.makedirs("/tmp/st_cache", exist_ok=True)
-
-os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
-os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
-os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
-os.environ["LLAMA_CPP_USE_MMAP"] = "1"
+for path in cache_paths:
+    try:
+        shutil.rmtree(path, ignore_errors=True)
+        print(f"🧹 Cleared cache at {path}")
+    except Exception as e:
+        print(f"Could not clear {path}: {e}")
 
 import re
 import pickle
@@ -28,6 +25,20 @@ from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
 
+
+# ============================================
+# Environment Setup
+# ============================================
+
+# Redirect Hugging Face and Sentence Transformers cache
+os.environ["HF_HOME"] = "/tmp/hf_home"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
+os.environ["HF_HUB_CACHE"] =  "/tmp/hf_home"
+
+os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
+os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
+os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
+os.environ["LLAMA_CPP_USE_MMAP"] = "1"
 
 # ============================================
 # Load Embedding Model
