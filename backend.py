@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
 
 # ============================================
@@ -40,7 +41,14 @@ class LlamaWrapper:
         response = self.llm(prompt=prompt, max_tokens=max_tokens, stop=stop)
         return response["choices"][0]["text"].strip()
 
-llm = LlamaWrapper(model_path="models/mistral-7b-instruct-v0.2.Q4_K_M.gguf")
+model_path = hf_hub_download(
+    repo_id="Omkar1803/mistral-7b-gguf",
+    filename="mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+)
+
+llm = LlamaWrapper(
+    model_path= model_path
+)
 
 # ============================================
 # FAISS + Metadata Load

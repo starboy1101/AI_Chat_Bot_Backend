@@ -3,6 +3,7 @@ uvicorn
 sentence-transformers
 faiss-cpu
 llama-cpp-python
+huggingface-hub
 langchain-core
 supabase
 pypdf
