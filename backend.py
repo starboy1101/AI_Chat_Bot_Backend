@@ -4,7 +4,6 @@ cache_paths = [
     "/.cache/huggingface",    
     "/root/.cache/huggingface",
     "/tmp/hf_home",
-    "/tmp/hf_cache",
     "/tmp/st_cache"
 ]
 
@@ -36,11 +35,6 @@ from supabase import create_client, Client
 # ============================================
 # Environment Setup
 # ============================================
-
-# Redirect Hugging Face and Sentence Transformers cache
-os.environ["HF_HOME"] = "/tmp/hf_home"
-os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
-os.environ["HF_HUB_CACHE"] =  "/tmp/hf_home"
 
 os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
