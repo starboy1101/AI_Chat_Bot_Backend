@@ -1,13 +1,4 @@
 import os
-import re
-import pickle
-import faiss
-from sentence_transformers import SentenceTransformer
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import PromptTemplate
-from llama_cpp import Llama
-from huggingface_hub import hf_hub_download
-from supabase import create_client, Client
 
 # ============================================
 # Environment Setup
@@ -28,6 +19,17 @@ os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
 os.environ["LLAMA_CPP_USE_MMAP"] = "1"
+
+import re
+import pickle
+import faiss
+from sentence_transformers import SentenceTransformer
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
+from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
+from supabase import create_client, Client
+
 
 # ============================================
 # Load Embedding Model
