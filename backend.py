@@ -12,9 +12,6 @@ from supabase import create_client, Client
 # ============================================
 # Environment Setup
 # ============================================
-os.environ["HF_HOME"] = "/data"
-os.environ["TRANSFORMERS_CACHE"] = "/data/huggingface"
-os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/data/sentence_transformers"
 os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
@@ -44,8 +41,13 @@ class LlamaWrapper:
         response = self.llm(prompt=prompt, max_tokens=max_tokens, stop=stop)
         return response["choices"][0]["text"].strip()
 
+model_path = hf_hub_download(
+    repo_id="Omkar1803/mistral-7b-gguf",
+    filename="mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+)
+
 llm = LlamaWrapper(
-    model_path= "/app/cache/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+    model_path= model_path
 )
 
 # ============================================
