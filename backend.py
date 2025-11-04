@@ -27,7 +27,7 @@ embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 # Llama Model Wrapper
 # ============================================
 class LlamaWrapper:
-    def __init__(self, model_path, n_ctx=7096, n_threads=os.cpu_count()):
+    def __init__(self, model_path, n_ctx=2048, n_threads=os.cpu_count()):
         self.llm = Llama(model_path=model_path, n_ctx=n_ctx, n_threads=n_threads)
 
     def __call__(self, prompt, max_tokens=256, stop=None):
