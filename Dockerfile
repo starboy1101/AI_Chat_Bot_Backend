@@ -11,8 +11,12 @@ WORKDIR /app
 # Copy project files
 COPY . .
 
-# Install Python deps
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Upgrade pip separately
+RUN python3 -m pip install --upgrade pip
+
+# Install dependencies one by one (avoids broken pipes)
+RUN pip install --no-cache-dir -r requirements.txt
+
 
 # Expose port
 EXPOSE 7860
