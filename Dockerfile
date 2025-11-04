@@ -1,25 +1,21 @@
+# ✅ Use modern, lightweight image (Python 3.10 + build tools)
 FROM python:3.10-slim
 
-# Install system dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+# Avoid source compilation for llama-cpp-python
+ENV CMAKE_ARGS="-DLLAMA_CUBLAS=off"
+
+# Install essential system libs for FAISS / Llama-CPP
 RUN apt-get update && apt-get install -y \
-    git wget build-essential libopenblas-dev libomp-dev && \
-    rm -rf /var/lib/apt/lists/*
+    git wget build-essential libopenblas-dev libomp-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
 WORKDIR /app
-
-# Copy project files
 COPY . .
 
-# Upgrade pip separately
+# Upgrade pip and prefer binary wheels
 RUN python3 -m pip install --upgrade pip
+RUN pip install --prefer-binary --no-cache-dir -r requirements.txt
 
-# Install dependencies one by one (avoids broken pipes)
-RUN pip install --no-cache-dir -r requirements.txt
-
-
-# Expose port
 EXPOSE 7860
-
-# Run FastAPI app
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7860"]

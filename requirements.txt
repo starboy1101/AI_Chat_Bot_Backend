@@ -2,7 +2,7 @@ fastapi
 uvicorn
 sentence-transformers
 faiss-cpu
-llama-cpp-python
+llama-cpp-python==0.2.83
 huggingface-hub
 langchain-core
 supabase
