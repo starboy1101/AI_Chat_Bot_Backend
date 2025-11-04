@@ -45,7 +45,7 @@ class LlamaWrapper:
         return response["choices"][0]["text"].strip()
 
 llm = LlamaWrapper(
-    model_path= "/data/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+    model_path= "/app/cache/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
 
 # ============================================
