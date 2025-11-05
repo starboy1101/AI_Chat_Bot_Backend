@@ -1,6 +1,6 @@
 import os
 from sentence_transformers import SentenceTransformer
-embed_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # os.environ["HF_HOME"] = "/tmp/hf_home"
 # os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
