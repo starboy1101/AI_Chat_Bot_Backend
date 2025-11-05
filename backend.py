@@ -1,17 +1,4 @@
 import os
-# os.environ["HF_HOME"] = "/tmp/hf_home"
-# os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
-# os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
-
-# os.makedirs("/tmp/hf_home", exist_ok=True)
-# os.makedirs("/tmp/st_cache", exist_ok=True)
-# cache_dir = os.path.join(os.path.dirname(__file__), "hf_cache")
-# os.makedirs(cache_dir, exist_ok=True)
-# os.environ["HF_HOME"] = cache_dir
-cache_dir = "/data/hf_cache"
-os.makedirs(cache_dir, exist_ok=True)
-os.environ["HF_HOME"] = cache_dir
-
 import re
 import pickle
 import faiss
@@ -55,6 +42,10 @@ class LlamaWrapper:
 
         response = self.llm(prompt=prompt, max_tokens=max_tokens, stop=stop)
         return response["choices"][0]["text"].strip()
+    
+cache_dir = "/data/hf_cache"
+os.makedirs(cache_dir, exist_ok=True)
+os.environ["HF_HOME"] = cache_dir
 
 model_path = hf_hub_download(
     repo_id="Omkar1803/mistral-7b-gguf",
