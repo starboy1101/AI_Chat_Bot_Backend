@@ -5,8 +5,8 @@ import os
 
 # os.makedirs("/tmp/hf_home", exist_ok=True)
 # os.makedirs("/tmp/st_cache", exist_ok=True)
-os.environ["HF_HOME"] = "/tmp/hf_home"
-os.makedirs("/tmp/hf_home", exist_ok=True)
+os.environ["HF_HOME"] = "/home/hf_cache"
+os.makedirs("/home/hf_cache", exist_ok=True)
 
 import re
 import pickle
