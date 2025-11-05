@@ -2,12 +2,13 @@ import os
 import re
 import pickle
 import faiss
-from langchain_core.output_parsers import StrOutputParser
 from sentence_transformers import SentenceTransformer
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
+
 
 # ============================================
 # Environment Setup
@@ -17,6 +18,12 @@ os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
 os.environ["LLAMA_CPP_USE_MMAP"] = "1"
+
+# ============================================
+# Load Embedding Model
+# ============================================
+print("Loading models...")
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ============================================
 # Llama Model Wrapper
@@ -36,17 +43,14 @@ class LlamaWrapper:
         response = self.llm(prompt=prompt, max_tokens=max_tokens, stop=stop)
         return response["choices"][0]["text"].strip()
 
-
 model_path = hf_hub_download(
     repo_id="Omkar1803/mistral-7b-gguf",
     filename="mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
 
 llm = LlamaWrapper(
-    model_path = model_path
+    model_path= model_path
 )
-
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ============================================
 # FAISS + Metadata Load
