@@ -38,10 +38,7 @@ class LlamaWrapper:
 
         response = self.llm(prompt=prompt, max_tokens=max_tokens, stop=stop)
         return response["choices"][0]["text"].strip()
-    
-cache_dir = "/data/hf_cache"
-os.makedirs(cache_dir, exist_ok=True)
-os.environ["HF_HOME"] = cache_dir
+
 
 model_path = hf_hub_download(
     repo_id="Omkar1803/mistral-7b-gguf",
