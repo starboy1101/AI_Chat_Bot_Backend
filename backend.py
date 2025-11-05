@@ -1,18 +1,10 @@
-import shutil, os
+import os
+os.environ["HF_HOME"] = "/tmp/hf_home"
+os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
+os.environ["HF_HUB_CACHE"] = "/tmp/hf_hub"
 
-cache_paths = [
-    "/.cache/huggingface",    
-    "/root/.cache/huggingface",
-    "/tmp/hf_home",
-    "/tmp/st_cache"
-]
-
-for path in cache_paths:
-    try:
-        shutil.rmtree(path, ignore_errors=True)
-        print(f"🧹 Cleared cache at {path}")
-    except Exception as e:
-        print(f"Could not clear {path}: {e}")
+from sentence_transformers import SentenceTransformer
+embed_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # os.environ["HF_HOME"] = "/tmp/hf_home"
 # os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
@@ -24,13 +16,11 @@ for path in cache_paths:
 import re
 import pickle
 import faiss
-from sentence_transformers import SentenceTransformer
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
-
 
 # ============================================
 # Environment Setup
@@ -40,12 +30,6 @@ os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
 os.environ["LLAMA_CPP_USE_MLOCK"] = "1"
 os.environ["LLAMA_CPP_USE_MMAP"] = "1"
-
-# ============================================
-# Load Embedding Model
-# ============================================
-print("Loading models...")
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ============================================
 # Llama Model Wrapper
