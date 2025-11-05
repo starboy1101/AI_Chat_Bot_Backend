@@ -1,7 +1,4 @@
 import os
-from sentence_transformers import SentenceTransformer
-embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-
 # os.environ["HF_HOME"] = "/tmp/hf_home"
 # os.environ["HF_HUB_CACHE"] = "/tmp/hf_home"
 # os.environ["SENTENCE_TRANSFORMERS_HOME"] = "/tmp/st_cache"
@@ -13,10 +10,15 @@ import re
 import pickle
 import faiss
 from langchain_core.output_parsers import StrOutputParser
+from sentence_transformers import SentenceTransformer
 from langchain_core.prompts import PromptTemplate
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
+
+
+model_path = "Omkar1803/all-MiniLM-L6-v2-local"
+embed_model = SentenceTransformer(model_path)
 
 # ============================================
 # Environment Setup
