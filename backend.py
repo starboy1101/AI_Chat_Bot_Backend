@@ -9,9 +9,6 @@ from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
 
-
-model_path = "Omkar1803/all-MiniLM-L6-v2-local"
-embed_model = SentenceTransformer(model_path)
 # ============================================
 # Environment Setup
 # ============================================
@@ -46,8 +43,10 @@ model_path = hf_hub_download(
 )
 
 llm = LlamaWrapper(
-    model_path= model_path
+    model_path = model_path
 )
+
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ============================================
 # FAISS + Metadata Load
