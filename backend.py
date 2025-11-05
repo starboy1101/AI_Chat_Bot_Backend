@@ -8,8 +8,9 @@ import os
 # cache_dir = os.path.join(os.path.dirname(__file__), "hf_cache")
 # os.makedirs(cache_dir, exist_ok=True)
 # os.environ["HF_HOME"] = cache_dir
-os.environ["HF_HOME"] = "/home/hf_cache"
-os.makedirs("/home/hf_cache", exist_ok=True)
+cache_dir = "/data/hf_cache"
+os.makedirs(cache_dir, exist_ok=True)
+os.environ["HF_HOME"] = cache_dir
 
 import re
 import pickle
