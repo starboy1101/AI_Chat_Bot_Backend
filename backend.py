@@ -5,6 +5,9 @@ import os
 
 # os.makedirs("/tmp/hf_home", exist_ok=True)
 # os.makedirs("/tmp/st_cache", exist_ok=True)
+cache_dir = os.path.join(os.path.dirname(__file__), "hf_cache")
+os.makedirs(cache_dir, exist_ok=True)
+os.environ["HF_HOME"] = cache_dir
 
 import re
 import pickle
@@ -17,9 +20,12 @@ from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
 
 
-model_path = "Omkar1803/all-MiniLM-L6-v2-local"
-embed_model = SentenceTransformer(model_path)
+model_path = os.path.join(os.path.dirname(__file__), "all-MiniLM-L6-v2")
 
+print(f"✅ Loading model from local path: {model_path}")
+
+# Load the model directly from your local folder
+embed_model = SentenceTransformer(model_path)
 # ============================================
 # Environment Setup
 # ============================================
