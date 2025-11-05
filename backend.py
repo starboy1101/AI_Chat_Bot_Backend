@@ -5,6 +5,8 @@ import os
 
 # os.makedirs("/tmp/hf_home", exist_ok=True)
 # os.makedirs("/tmp/st_cache", exist_ok=True)
+os.environ["HF_HOME"] = "/tmp/hf_home"
+os.makedirs("/tmp/hf_home", exist_ok=True)
 
 import re
 import pickle
@@ -26,9 +28,6 @@ embed_model = SentenceTransformer(model_path)
 # ============================================
 # Environment Setup
 # ============================================
-
-os.environ["HF_HOME"] = "/tmp/hf_home"
-os.makedirs("/tmp/hf_home", exist_ok=True)
 
 os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
 os.environ["OMP_WAIT_POLICY"] = "PASSIVE"
