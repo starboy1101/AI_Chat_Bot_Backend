@@ -10,11 +10,7 @@ from huggingface_hub import hf_hub_download
 from supabase import create_client, Client
 
 
-model_path = os.path.join(os.path.dirname(__file__), "all-MiniLM-L6-v2")
-
-print(f"✅ Loading model from local path: {model_path}")
-
-# Load the model directly from your local folder
+model_path = "Omkar1803/all-MiniLM-L6-v2-local"
 embed_model = SentenceTransformer(model_path)
 # ============================================
 # Environment Setup
