@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from backend import generate_answer
+from backend import generate_answer, load_models_if_needed
 import json
 import difflib
 
@@ -25,6 +25,15 @@ user_sessions = {}
 class ChatRequest(BaseModel):
     message: str
     user_id: str | None = "default"
+
+@app.on_event("startup")
+async def init_backend():
+    print("🚀 Starting backend initialization...")
+    try:
+        load_models_if_needed()
+        print("✅ Backend models loaded.")
+    except Exception as e:
+        print("⚠️ Model load failed:", e)
 
 
 @app.post("/chat")
