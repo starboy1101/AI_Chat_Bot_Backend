@@ -40,6 +40,13 @@ async def register(req: LoginRequest):
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
+        existing = supabase.table('users').select('user_id').eq('user_id', req.user_id).limit(1).execute()
+        if existing.data:
+            return {
+                "success": False,
+                "message": "User already exists"
+            }
+
         now = datetime.utcnow().isoformat()
         hashed = hash_password(req.password)
         insert_row('users', {
@@ -47,7 +54,9 @@ async def register(req: LoginRequest):
             'password': hashed,
             'created_at': now
         })
-        return {"success": True}
+
+        return { "success": True, "message": "User registered successfully" }
+
     except Exception:
         logger.exception('Register failed')
         raise HTTPException(status_code=500, detail='Register failed')
