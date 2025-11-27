@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
+from datetime import timedelta
 from models import LoginRequest, LoginResponse
 from db import supabase, insert_row
 from utils import verify_password, hash_password, create_access_token
@@ -12,10 +13,6 @@ logger = logging.getLogger("swarai.auth")
 
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
-    # demo shortcut
-    # if req.user_id == DEMO_USER and req.password == DEMO_PASS:
-    #     token = create_access_token(req.user_id)
-    #     return {"success": True, "token": token, "message": "Logged in (demo)"}
 
     if supabase is None:
         raise HTTPException(status_code=500, detail="Auth backend not configured")
