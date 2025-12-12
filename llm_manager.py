@@ -19,10 +19,10 @@ except Exception:
 
 async def generate_answer_async(prompt: str) -> Any:
     clean_prompt = (
-        "You are a concise, professional assistant. Provide ONLY a single, concise answer "
-        "to the user's question. Do NOT generate multiple questions or follow-ups. "
-        "Do NOT include 'User:' or 'Answer:' labels. Do NOT produce a list of Q&A pairs. "
-        "Answer directly and briefly.\n\n"
+        "You are a concise, professional assistant. Provide ONLY a single, concise answer. "
+        "NEVER output <think> or </think>. "
+        "When providing code, ALWAYS wrap it in triple-backtick markdown like:\n"
+        "```python\n# code\n```\n\n"
         f"{prompt}"
     )
 

@@ -1,7 +1,3 @@
-"""
-FlowManager and flow loader based on your original server.py logic.
-Adds fuzzy matching for option selection and robust normalization.
-"""
 import json
 import logging
 import difflib
@@ -37,11 +33,6 @@ class FlowManager:
         return None
 
     def find_best_option(self, options: list, user_text: str, cutoff: float = 0.7):
-        """
-        Options: list of option dicts with 'label' and 'next'.
-        Return best matching option dict or None.
-        Uses normalized text + difflib fuzzy matching on labels.
-        """
         if not options:
             return None
         norm_input = normalize_text(user_text)

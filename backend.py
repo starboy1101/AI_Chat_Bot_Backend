@@ -52,17 +52,18 @@ _sources_cache: List[str] = []
 
 # Prompt template
 PROMPT_SYSTEM_GUIDELINES = """
-You are SwarAI — a professional chatbot that specializes in Windows audio development, software architecture, and conversational AI.
-You respond in a structured and natural tone.
+You are SwarAI — a professional chatbot specializing in Windows audio development, software architecture, and conversational AI.
 
 Rules:
-- Use short paragraphs for explanations.
-- Use bullet points or numbering for steps or key points.
-- Add code examples in fenced blocks (```code```).
-- Maintain professional but friendly language.
-- For long answers, split them into parts.
-- Do NOT generate multiple questions or follow-ups. "
-- Do NOT include 'User:' or 'Answer:' labels. Do NOT produce a list of Q&A pairs.
+- NEVER output <think> or </think> tags.
+- NEVER reveal chain-of-thought or hidden reasoning. Only provide the final answer.
+- Use short paragraphs for clarity.
+- Use bullet points when helpful.
+- ALWAYS format code using standard markdown fenced blocks, for example:
+
+```csharp
+class Example {
+}
 """
 
 PROMPT_TEMPLATE = """{system_guidelines}
@@ -80,8 +81,6 @@ prompt_template = PromptTemplate(
     template=PROMPT_TEMPLATE
 )
 
-# Trigger keywords helper
-TRIGGER_KEYWORDS = ["try your services", "try your service", "try services", "try service", "services", "service"]
 # Utilities
 def normalize_text(s: str) -> str:
     s = s or ""
@@ -91,22 +90,42 @@ def normalize_text(s: str) -> str:
     return s
 
 def matches_services_trigger(text: str) -> bool:
-    text_n = normalize_text(text)
-    if not text_n:
+    if not text:
         return False
-    if re.search(r"\btry\b.*\bservice(s)?\b", text_n) or re.search(r"\bservice(s)?\b.*\btry\b", text_n):
-        return True
 
-    tokens = text_n.split()
-    for k in TRIGGER_KEYWORDS:
-        if k in text_n:
+    text_n = normalize_text(text)
+
+    # Exact phrases
+    main_phrases = [
+        "try your service",
+        "try your services",
+        "try service",
+        "try services",
+        "start service flow",
+    ]
+
+    # Acceptable typos
+    service_typos = [
+        "sevice",
+        "servise",
+        "serivce",
+        "srvice",
+        "srevice",
+    ]
+
+    # Check multi-word triggers
+    for p in main_phrases:
+        if p in text_n:
             return True
-        for t in tokens:
-            if difflib.get_close_matches(t, [k], n=1, cutoff=0.85):
+
+    # Check typo patterns after "try your"
+    if text_n.startswith("try your "):
+        for typo in service_typos:
+            if typo in text_n:
                 return True
-            
-    candidates = difflib.get_close_matches(text_n, TRIGGER_KEYWORDS, n=1, cutoff=0.75)
-    if candidates:
+
+    # Strict regex
+    if re.search(r"\btry\b.*\bservice(s)?\b", text_n):
         return True
 
     return False
@@ -161,10 +180,10 @@ async def _async_load_models_and_index():
             if llm is None:
                 # Download model artifact once (may take time). Adjust repo / filename as needed.
                 model_path = hf_hub_download(
-                    repo_id=os.getenv("LLAMA_REPO", "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"),
-                    filename=os.getenv("LLAMA_FILENAME", "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf")
+                    repo_id=os.getenv("LLAMA_REPO"),
+                    filename=os.getenv("LLAMA_FILENAME")
                 )
-                llm = Llama(model_path=model_path, n_ctx=int(os.getenv("LLM_N_CTX", 2024)), n_batch=int(os.getenv("LLM_N_BATCH", 64)))
+                llm = Llama(model_path=model_path, n_ctx=int(os.getenv("LLM_N_CTX", 2024)), n_batch=int(os.getenv("LLM_N_BATCH", 64)), chat_format="llama-3")
                 logger.info("Llama model loaded.")
 
             # Load or create FAISS index (keep in memory)
@@ -314,12 +333,20 @@ async def _call_model_async(prompt_text: str, max_tokens: int = 512) -> str:
     await _async_load_models_and_index()  # ensure loaded
     async with _model_lock:
         try:
-            result = await asyncio.to_thread(lambda: llm(prompt=prompt_text, max_tokens=max_tokens))
-            if isinstance(result, dict) and result.get("choices"):
-                text = result["choices"][0].get("text", "").strip()
-            else:
-                text = str(result).strip()
+            def _run():
+                return llm.create_chat_completion(
+                    messages=[
+                        {"role": "system", "content": PROMPT_SYSTEM_GUIDELINES},
+                        {"role": "user", "content": prompt_text},
+                    ],
+                    max_tokens=max_tokens,
+                )
+
+            result = await asyncio.to_thread(_run)
+
+            text = result["choices"][0]["message"]["content"].strip()
             return text
+
         except Exception:
             logger.exception("Model call failed.")
             raise

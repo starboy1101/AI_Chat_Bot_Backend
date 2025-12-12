@@ -14,8 +14,6 @@ except Exception as e:
     logger.warning(f"⚠️ Supabase client not configured: {e}")
 
 
-# ---------- BASIC OPERATIONS ---------- #
-
 def insert_row(table: str, payload: dict):
     if not supabase:
         raise RuntimeError("Supabase not configured")

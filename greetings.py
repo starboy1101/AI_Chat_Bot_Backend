@@ -1,6 +1,3 @@
-"""
-Greeting detection robust to case and spelling using normalization + fuzzy matching.
-"""
 import difflib
 import logging
 from utils import normalize_text
