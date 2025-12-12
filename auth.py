@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from datetime import timedelta
-from models import LoginRequest, LoginResponse
+from models import LoginRequest, LoginResponse, RegisterRequest
 from db import supabase, insert_row
 from utils import verify_password, hash_password, create_access_token
-from config import DEMO_USER, DEMO_PASS
 import logging
 from uuid import uuid4   
 
@@ -33,7 +32,7 @@ async def login(req: LoginRequest):
         raise HTTPException(status_code=500, detail='Login failed')
 
 @router.post("/register")
-async def register(req: LoginRequest):
+async def register(req: RegisterRequest):
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -48,6 +47,9 @@ async def register(req: LoginRequest):
         hashed = hash_password(req.password)
         insert_row('users', {
             'user_id': req.user_id,
+            'email': req.email,
+            'first_name': req.firstName,
+            'last_name': req.lastName,
             'password': hashed,
             'created_at': now
         })
@@ -60,10 +62,6 @@ async def register(req: LoginRequest):
     
 @router.post("/guest")
 async def guest_login():
-    """
-    Create a temporary in-memory guest session.
-    No database insert, just returns a short-lived token.
-    """
     try:
         guest_id = f"guest_{uuid4().hex[:8]}"
         token = create_access_token(

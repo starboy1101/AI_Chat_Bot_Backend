@@ -9,21 +9,21 @@
     ]
   },
 
-    "Optimization_type": {
+  "Optimization_type": {
     "id": "Optimization_type",
-    "text": "Cool! Which type of Optimization do you want ?",
+    "text": "Cool! Which type of Optimization do you want?",
     "options": [
       { "label": "Design level", "next": "DSP_Processor" },
       { "label": "Intrinsic", "next": "DSP_Processor" }
     ]
   },
 
-    "App_type": {
+  "App_type": {
     "id": "App_type",
-    "text": "Cool! What type of APP do you want ?",
+    "text": "Cool! What type of APP do you want?",
     "options": [
-      { "label": "Windows based", "next": "final_step" },
-      { "label": "Android based", "next": "final_step" }
+      { "label": "Windows based", "next": "Audio_Params_1" },
+      { "label": "Android based", "next": "Audio_Params_1" }
     ]
   },
 
@@ -32,40 +32,40 @@
     "text": "To move ahead, please answer a few questions related to porting.",
     "options": [
       { "label": "Yes", "next": "Porting_question_1" },
-      { "label": "No", "next": "end"}
+      { "label": "No", "next": "end" }
     ]
   },
 
   "Porting_question_1": {
     "id": "Porting_question_1",
-    "text": "On which target the audio algorithm is running?",
+    "text": "On which target is the audio algorithm running?",
     "type": "input",
     "next": "Porting_question_2"
   },
 
   "Porting_question_2": {
     "id": "Porting_question_2",
-    "text": "Is there a requirenment for Cross Compliance? ",
+    "text": "Is there a requirement for Cross Compliance?",
     "type": "input",
     "next": "DSP_Processor"
   },
 
   "DSP_Processor": {
     "id": "DSP_Processor",
-    "text": "Got it. Now, which type of processor do you need?",
+    "text": "Got it. Which processor do you need?",
     "options": [
       { "label": "Qualcom Hexagon", "next": "Audio_Interface" },
-      { "label": "HiFi 3", "next": "Application" },
-      { "label": "HiFi 4", "next": "Application" },
-      { "label": "HiFi 5", "next": "Application" },
-      { "label": "TI C6000", "next": "Application" },
-      { "label": "TI C7000", "next": "Application" }
+      { "label": "HiFi 3", "next": "Audio_Interface" },
+      { "label": "HiFi 4", "next": "Audio_Interface" },
+      { "label": "HiFi 5", "next": "Audio_Interface" },
+      { "label": "TI C6000", "next": "Audio_Interface" },
+      { "label": "TI C7000", "next": "Audio_Interface" }
     ]
   },
 
   "Application": {
     "id": "Application",
-    "text": "Cool! What type of application do you want ?",
+    "text": "Cool! What type of application do you want?",
     "options": [
       { "label": "Arm", "next": "Audio_Interface" },
       { "label": "Intel", "next": "Audio_Interface" },
@@ -75,108 +75,217 @@
 
   "Audio_Interface": {
     "id": "Audio_Interface",
-    "text": "Understood. Which type of audio interface do you want?",
+    "text": "Which audio interface do you want?",
     "options": [
-      { "label": "Elite Framework", "next": "Algo_req" },
-      { "label": "Audio Reach Framework", "next": "Algo_req" },
-      { "label": "Capi V1/V2 Audio Interface", "next": "Algo_req" }
+      { "label": "Elite Framework", "next": "Audio_Params_1" },
+      { "label": "Audio Reach Framework", "next": "Audio_Params_1" },
+      { "label": "Capi V1/V2 Audio Interface", "next": "Audio_Params_1" }
     ]
   },
 
-  "Algo_req": {
-    "id": "Algo_req",
-    "text": "Great! Please answer a few questions for Specific Requirenment.",
+  "Audio_Params_1": {
+    "id": "Audio_Params_1",
+    "text": "Select the PCM Sample Size:",
     "options": [
-      { "label": "Yes", "next": "Requirenment_question_1" },
-      { "label": "No", "next": "end"}
+      { "label": "8-bit", "next": "Audio_Params_2" },
+      { "label": "16-bit", "next": "Audio_Params_2" },
+      { "label": "32-bit", "next": "Audio_Params_2" }
     ]
   },
 
-  "Requirenment_question_1": {
-    "id": "Requirenment_question_1",
-    "text": "What will be the Sample Rate?",
-    "type": "input",
-    "next": "Requirenment_question_2"
+  "Audio_Params_2": {
+    "id": "Audio_Params_2",
+    "text": "Select the Sampling Frequency:",
+    "options": [
+      { "label": "8 kHz", "next": "Audio_Params_3" },
+      { "label": "16 kHz", "next": "Audio_Params_3" },
+      { "label": "24 kHz", "next": "Audio_Params_3" },
+      { "label": "32 kHz", "next": "Audio_Params_3" },
+      { "label": "48 kHz", "next": "Audio_Params_3" },
+      { "label": "92 kHz", "next": "Audio_Params_3" },
+      { "label": "192 kHz", "next": "Audio_Params_3" }
+    ]
   },
 
-  "Requirenment_question_2": {
-    "id": "Requirenment_question_2",
-    "text": "What will be the Bit Depth?",
-    "type": "input",
-    "next": "Requirenment_question_3"
+  "Audio_Params_3": {
+    "id": "Audio_Params_3",
+    "text": "Select the Audio Format:",
+    "options": [
+      { "label": "Mono", "next": "Audio_Tech_1" },
+      { "label": "Stereo", "next": "Audio_Tech_1" },
+      { "label": "Multi Channel", "next": "Audio_Tech_1" }
+    ]
   },
 
-    "Requirenment_question_3": {
-    "id": "Requirenment_question_3",
-    "text": "What will be the Sample Size?",
-    "type": "input",
-    "next": "Requirenment_question_4"
+  "Audio_Tech_1": {
+    "id": "Audio_Tech_1",
+    "text": "Select required audio processing modules:",
+    "options": [
+      { "label": "GEQ", "next": "Audio_Tech_2" },
+      { "label": "Loudness Leveling", "next": "Audio_Tech_2" },
+      { "label": "Treble Boost", "next": "Audio_Tech_2" },
+      { "label": "Voice", "next": "Audio_Tech_2" },
+      { "label": "Content Modes (Movies/Game/Music/Custom)", "next": "Audio_Tech_2" },
+      { "label": "Dialogue Enhancement", "next": "Audio_Tech_2" },
+      { "label": "Bass Boost", "next": "Audio_Tech_2" }
+    ]
   },
 
-    "Requirenment_question_4": {
-    "id": "Requirenment_question_4",
-    "text": "What will be the Block Size(Per processor)?",
+  "Audio_Tech_2": {
+    "id": "Audio_Tech_2",
+    "text": "Select the current platforms supported:",
+    "options": [
+      { "label": "PC Platform", "next": "CodeBase_1" },
+      { "label": "Embedded", "next": "CodeBase_1" }
+    ]
+  },
+
+  "CodeBase_1": {
+    "id": "CodeBase_1",
+    "text": "Select the languages used:",
+    "options": [
+      { "label": "C", "next": "CodeBase_2" },
+      { "label": "C++", "next": "CodeBase_2" }
+    ]
+  },
+
+  "CodeBase_2": {
+    "id": "CodeBase_2",
+    "text": "Select the type of sample app:",
+    "options": [
+      { "label": "File-based", "next": "CodeBase_3" },
+      { "label": "UI-based", "next": "CodeBase_3" }
+    ]
+  },
+
+  "CodeBase_3": {
+    "id": "CodeBase_3",
+    "text": "What is the approximate code size?",
+    "type": "input",
+    "next": "CodeBase_4"
+  },
+
+  "CodeBase_4": {
+    "id": "CodeBase_4",
+    "text": "What is the memory requirement?",
+    "type": "input",
+    "next": "CodeBase_5"
+  },
+
+  "CodeBase_5": {
+    "id": "CodeBase_5",
+    "text": "Is source code available or provided as a library?",
+    "type": "input",
+    "next": "CodeBase_6"
+  },
+
+  "CodeBase_6": {
+    "id": "CodeBase_6",
+    "text": "Select the code implementation type:",
+    "options": [
+      { "label": "Fixed Point", "next": "TargetPlatform_1" },
+      { "label": "Floating Point", "next": "TargetPlatform_1" }
+    ]
+  },
+
+  "TargetPlatform_1": {
+    "id": "TargetPlatform_1",
+    "text": "Select the target platform to port:",
+    "options": [
+      { "label": "Qucom", "next": "TargetPlatform_2" },
+      { "label": "HIFI", "next": "TargetPlatform_2" },
+      { "label": "TI", "next": "TargetPlatform_2" }
+    ]
+  },
+
+  "TargetPlatform_2": {
+    "id": "TargetPlatform_2",
+    "text": "Enter chipset details:",
     "type": "input",
     "next": "final_step"
   },
 
   "final_step": {
     "id": "final_step",
-    "text": "Awesome! Your requirements have been noted down. Please review your summary before we proceed further.",
+    "text": "Awesome! Your requirements have been noted. Review your summary before proceeding.",
     "options": [
       { "label": "See Summary", "next": "show_summary" },
-      { "label": "Move Ahead Without Summary", "next": "submit_response" }
+      { "label": "Move Ahead Without Summary", "next": "query_check" }
     ]
   },
 
   "show_summary": {
     "id": "show_summary",
-    "text": "The summary of your requirements:\n\n{{summary}}\n\nWould you like to make any changes?",
+    "text": "Here is your summary including queries:\n\n{{summary}}\n\nWould you like to make any changes?",
     "options": [
       { "label": "Make Changes", "next": "make_changes" },
-      { "label": "Move Ahead", "next": "submit_response" }
+      { "label": "Move Ahead", "next": "query_check" }
     ]
   },
 
   "make_changes": {
     "id": "make_changes",
-    "text": "Please enter the number of the question you'd like to change (e.g., 1, 2, 3).",
+    "text": "Enter the number of the question you'd like to change (including queries):",
     "expect_user_input": true
   },
 
   "await_new_answer": {
     "id": "await_new_answer",
-    "text": "Please enter your new answer for the selected question:",
+    "text": "Enter your new answer:",
     "expect_user_input": true,
     "next": "show_updated_summary"
   },
 
   "show_updated_summary": {
     "id": "show_updated_summary",
-    "text": "Got it! I've updated your requirements based on your changes.\n\nHere’s your updated summary:\n\n{{updated_summary}}\n\nWould you like to proceed?",
+    "text": "Updated summary including updated queries:\n\n{{updated_summary}}\n\nWould you like to proceed?",
     "options": [
-      { "label": "Yes, Move Ahead", "next": "submit_response" },
+      { "label": "Yes", "next": "query_check" },
       { "label": "Make More Changes", "next": "make_changes" }
+    ]
+  },
+
+  "query_check": {
+    "id": "query_check",
+    "text": "Do you have any queries? (Yes/No)",
+    "options": [
+      { "label": "Yes", "next": "query_input" },
+      { "label": "No", "next": "submit_response" }
+    ]
+  },
+
+  "query_input": {
+    "id": "query_input",
+    "text": "Please enter your query:",
+    "type": "input",
+    "next": "query_more"
+  },
+
+  "query_more": {
+    "id": "query_more",
+    "text": "Do you have more queries? (Yes/No)",
+    "options": [
+      { "label": "Yes", "next": "query_input" },
+      { "label": "No", "next": "submit_response" }
     ]
   },
 
   "submit_response": {
     "id": "submit_response",
-    "text": "Thank you! Your requirements have been successfully submitted. Our team will get back to you shortly.",
+    "text": "Thank you! Your requirements have been submitted. Our team will get back to you shortly.",
     "options": []
   },
 
-  "mistake_prompt": {
-    "id": "mistake_prompt",
-    "options": [
-      { "label": "Yes", "next": "start" },
-      { "label": "No",  "next": "end" }
-    ]
-  },
+  "mistake_prompt": { 
+    "id": "mistake_prompt", 
+    "options": [ 
+      { "label": "Yes", "next": "{{last_question_node}}" }, 
+      { "label": "No", "next": "end" } 
+      ] 
+    },
 
   "end": {
     "id": "end",
-    "text": "No problem! You can start again anytime by saying 'Try your service'.",
-    "in_flow": false
+    "text": "No problem! You can start again anytime by saying 'Try your service'."
   }
 }

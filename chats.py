@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from uuid import uuid4
 from datetime import datetime
 from db import supabase, insert_row, delete_rows, update_row
-from models import ChatRequest, CreateChatRequest
+from models import ChatRequest, CreateChatRequest, UpdateUserInfo
 from llm_manager import generate_answer_async
 from flows import flow_manager, conversation_flow
 from greetings import is_greeting, GREETING_REPLY
@@ -33,6 +33,89 @@ def estimate_tokens(text: str) -> int:
     if not text:
         return 0
     return max(1, int(len(text) / 4))
+
+async def save_user_message_immediately(session_id, user_id, message):
+    if not supabase or not session_id:
+        return
+
+    now = datetime.utcnow().isoformat()
+
+    insert_row(
+        "chat_messages",
+        {
+            "session_id": session_id,
+            "role": "user",
+            "content": message,
+            "created_at": now,
+        },
+    )
+
+    # also update chat session timestamp
+    update_row(
+        "chat_sessions",
+        {"id": session_id},
+        {"updated_at": now},
+    )
+
+@router.get("/userinfo/{user_id}")
+async def get_user_info(user_id: str):
+    if supabase is None:
+        raise HTTPException(status_code=500, detail='Supabase not configured')
+
+    try:
+        result = (
+            supabase.table('users')
+            .select("user_id, email, first_name, last_name, bio, location, website")
+            .eq('user_id', user_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "success": True,
+            "data": result.data[0]
+        }
+
+    except Exception:
+        logger.exception("Failed to fetch user info")
+        raise HTTPException(status_code=500, detail="Failed to fetch user info")
+
+@router.post("/userinfo/update")
+async def update_user_info(req: UpdateUserInfo):
+    if supabase is None:
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
+    try:
+        result = (
+            supabase.table("users")
+            .update({
+                "first_name": req.first_name,
+                "last_name": req.last_name,
+                "email": req.email,
+                "bio": req.bio,
+                "location": req.location,
+                "website": req.website,
+            })
+            .eq("user_id", req.user_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "success": True,
+            "message": "User info updated successfully",
+            "data": result.data[0]
+        }
+
+    except Exception as e:
+        logger.exception("Failed to update user info")
+        raise HTTPException(status_code=500, detail="Failed to update user info")
+
 
 @router.get("/get_chats/{user_id}")
 async def get_chats(user_id: str):
@@ -91,6 +174,123 @@ async def delete_chat(chat_id: str):
         logger.exception('delete_chat failed')
         raise HTTPException(status_code=500, detail='Failed to delete chat')
 
+def generate_instant_smart_title(msg: str, in_flow: bool = False) -> str:
+    """
+    Generate a smart, short title without using LLM.
+    Rule-based extraction mimics ChatGPT-style titles.
+    """
+
+    if not msg:
+        return "New Chat"
+
+    text = msg.strip()
+
+    # 1. Flow-based override
+    if in_flow:
+        return "Service Requirements"
+
+    # 2. Remove trailing punctuation
+    text = text.rstrip("?.! ")
+
+    # 3. Audio-domain keyword mapping
+    audio_keywords = {
+        "sample rate": "Audio Sampling",
+        "bit depth": "Audio Bit Depth",
+        "equalizer": "Audio Equalizer",
+        "optimization": "Audio Optimization",
+        "dsp": "DSP Processing",
+        "hifi3": "HiFi3 Optimization",
+        "hifi4": "HiFi4 Optimization",
+        "hifi5": "HiFi5 Optimization",
+        "framework": "Audio Framework",
+        "intrinsic": "Intrinsic Optimization",
+        "porting": "Audio Porting",
+        "hexagon": "Hexagon DSP",
+    }
+
+    lower_msg = text.lower()
+    for key, title in audio_keywords.items():
+        if key in lower_msg:
+            return title
+
+    # 4. If it's a question → make a clean title
+    if text.lower().startswith(("how", "what", "why", "can", "does", "do ")):
+        words = text.split()
+        if len(words) <= 6:
+            return text.capitalize()
+        else:
+            # Remove filler words
+            remove = {"how", "what", "why", "can", "do", "does", "is", "the", "a", "to"}
+            cleaned = [w for w in words if w.lower() not in remove]
+            title = " ".join(cleaned[:6])
+            return title.capitalize()
+
+    # 5. If it's long → extract first 5–7 meaningful words
+    words = text.split()
+    if len(words) > 7:
+        words = words[:7]
+
+    title = " ".join(words)
+    return title.capitalize()
+
+
+async def persist_chat_pair(user_id, session_key, session, session_id, user_message, assistant_message):
+    """
+    User message is already saved immediately; this now only saves the assistant message
+    and generates a smart title like ChatGPT.
+    """
+    if not supabase or not session_id:
+        return session_id
+
+    now = datetime.utcnow().isoformat()
+
+    try:
+        insert_row(
+            "chat_messages",
+            {
+                "session_id": session_id,
+                "role": "assistant",
+                "content": assistant_message,
+                "created_at": now,
+            },
+        )
+
+        update_row(
+            "chat_sessions",
+            {"id": session_id},
+            {"updated_at": now},
+        )
+    except Exception:
+        logger.exception("Failed to save assistant message")
+        return session_id
+
+    try:
+        session_row = (
+            supabase.table("chat_sessions")
+            .select("title")
+            .eq("id", session_id)
+            .execute()
+        )
+        current_title = session_row.data[0]["title"] if session_row.data else "New Chat"
+
+        if current_title == "New Chat" and user_message.strip():
+            smart_title = generate_instant_smart_title(
+                user_message,
+                in_flow=session.get("in_flow", False)
+            )
+
+            update_row(
+                "chat_sessions",
+                {"id": session_id},
+                {"title": smart_title, "updated_at": now},
+            )
+
+    except Exception:
+        logger.exception("Smart title generation failed")
+
+    return session_id
+
+
 @router.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     user_id = req.user_id or "guest"
@@ -125,6 +325,16 @@ async def chat_endpoint(req: ChatRequest):
             "message": "⚡ Temporary guest chat (not saved)"
         }
 
+    # session_id may or may not be provided by frontend
+    raw_session_id = req.session_id or None
+
+    # If session_id is provided → per-chat flow isolate via composite key.
+    # If not provided → fall back to per-user key (same as old behavior).
+    if raw_session_id:
+        session_key = f"{user_id}:{raw_session_id}"
+    else:
+        session_key = user_id
+
     # prepare in-memory session defaults (preserve original behavior)
     default_session = {
         "in_flow": False,
@@ -132,13 +342,13 @@ async def chat_endpoint(req: ChatRequest):
         "context": {},
         "change_target": None,
         "authenticated": False,
-        "session_id": None,
+        "session_id": raw_session_id,
     }
-    session = user_sessions.get(user_id, {})
+    session = user_sessions.get(session_key, {})
     for k, v in default_session.items():
         session.setdefault(k, v)
-    user_sessions[user_id] = session
-    is_demo_user = session.get("authenticated", False)
+    user_sessions[session_key] = session
+    is_demo_user = session.get("authenticated", False)  # kept for compatibilit
 
     async def _get_reply_text(text: str) -> str:
         parts = await generate_answer_async(text)
@@ -146,7 +356,32 @@ async def chat_endpoint(req: ChatRequest):
             return parts[0]
         return parts if isinstance(parts, str) else str(parts)
 
-    session_id = session.get("session_id")
+    session_id = session.get("session_id") or raw_session_id
+
+    # Ensure session_id exists before saving user message
+    if not session_id and not is_guest and supabase:
+        now = datetime.utcnow().isoformat()
+        session_id = str(uuid4())
+        insert_row(
+            "chat_sessions",
+            {
+                "id": session_id,
+                "user_id": user_id,
+                "title": "New Chat",
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+        session["session_id"] = session_id
+        user_sessions[session_key] = session
+
+    # --- Save USER message instantly before any flow or AI ---
+    if session_id:
+        try:
+            await save_user_message_immediately(session_id, user_id, message)
+        except Exception:
+            logger.exception("Failed to save user message immediately.")    
+
 
     # 1) Flow trigger: if not in flow and message triggers service flow (use flow trigger detection from backend.py)
     # backend.py defines matches_services_trigger -- import robustly
@@ -158,12 +393,22 @@ async def chat_endpoint(req: ChatRequest):
         except Exception:
             matches_services_trigger = lambda t: False
 
+    logger.info("chat_endpoint: session_key=%s in_flow=%s node_id=%s message=%r",
+    session_key, session.get("in_flow"), session.get("node_id"), message)
+
+
     if not session["in_flow"] and matches_services_trigger(message):
         session.update({"in_flow": True, "node_id": "start", "context": {}, "change_target": None})
-        user_sessions[user_id] = session
+        user_sessions[session_key] = session 
         start_node = conversation_flow.get("start", {"text": "Starting..."})
         reply_text = start_node.get("text", "Starting...")
         options = start_node.get("options", [])
+        try:
+            session_id = await persist_chat_pair(
+                user_id, session_key, session, session_id, message, reply_text
+            )
+        except Exception:
+            logger.exception("Supabase save failed (flow start).")
         return {
             "reply": reply_text,
             "options": options,
@@ -177,160 +422,326 @@ async def chat_endpoint(req: ChatRequest):
             ],
         }
 
-    # 2) If in flow -> delegate to FlowManager logic (preserves your server.py flow)
+    # 2) If in flow -> delegate to FlowManager logic 
     if session["in_flow"]:
         current_id = session["node_id"]
         node = conversation_flow.get(current_id)
 
+        # ---------------------------------------------
+        # HANDLE YES/NO AFTER INVALID OPTION
+        # ---------------------------------------------
+        if current_id == "mistake_prompt":
+            ans = message.strip().lower()
+
+            # YES → return to the node before the mistake
+            if ans in ["yes", "y"]:
+                last_q = session.get("last_question_node")
+
+                if last_q and last_q in conversation_flow:
+                    session["node_id"] = last_q
+                    user_sessions[session_key] = session
+
+                    q_node = conversation_flow[last_q]
+                    reply_text = q_node.get("text", "Let's continue.")
+                    options = q_node.get("options", [])
+
+                    return {
+                        "reply": reply_text,
+                        "options": options,
+                        "in_flow": True,
+                        "node_id": last_q,
+                        "context": session["context"],
+                    }
+
+                # fallback if node is missing
+                session["in_flow"] = False
+                user_sessions[session_key] = session
+                reply_text = "⚠️ Unable to continue because the previous step was not found."
+                return {"reply": reply_text, "in_flow": False}
+
+            # NO → end flow
+            if ans in ["no", "n"]:
+                session["in_flow"] = False
+                session["node_id"] = None
+                user_sessions[session_key] = session
+
+                reply_text = "👍 No problem — ending the requirements flow."
+                return {
+                    "reply": reply_text,
+                    "options": [],
+                    "in_flow": False,
+                    "node_id": None,
+                    "context": session["context"],
+                }
+
+            # Invalid yes/no → ask again
+            reply_text = "Please type **Yes** or **No**."
+            return {
+                "reply": reply_text,
+                "options": ["Yes", "No"],
+                "in_flow": True,
+                "node_id": "mistake_prompt",
+                "context": session["context"],
+            }
+
+        # If node missing → exit flow safely
         if not node:
             session["in_flow"] = False
-            user_sessions[user_id] = session
-            reply_text = await _get_reply_text(req.message)
-            return {"reply": reply_text, "in_flow": False}
+            user_sessions[session_key] = session
+            safe_reply = await _get_reply_text(req.message)
+            try:
+                session_id = await persist_chat_pair(
+                    user_id, session_key, session, session_id, message, safe_reply
+                )
+            except Exception:
+                logger.exception("Supabase save failed (flow missing node).")
+            return {
+                "reply": safe_reply,
+                "in_flow": False,
+                "session_id": session_id,
+                "messages": [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": safe_reply}
+                ],
+            }
 
-        # handle make_changes expecting numeric input
+        # ---------------------------------------------
+        # HANDLE MAKE_CHANGES (expects number)
+        # ---------------------------------------------
         if current_id == "make_changes" and node.get("expect_user_input"):
             try:
                 change_num = int(message.strip())
                 summary_items = list(session["context"].keys())
+
                 if change_num < 1 or change_num > len(summary_items):
                     raise ValueError("Invalid number")
+
                 target_id = summary_items[change_num - 1]
                 session["change_target"] = target_id
-                session["node_id"] = "await_new_answer"
-                user_sessions[user_id] = session
-                next_node = conversation_flow.get("await_new_answer", {})
+
+                # next node
                 target_node = conversation_flow.get(target_id, {})
                 question_text = target_node.get("text", "")
                 options = target_node.get("options", [])
+
                 if options:
                     reply_text = f"📝 Let's update your answer!\n\n{question_text}"
                     session["node_id"] = target_id
-                    user_sessions[user_id] = session
-                    return {"reply": reply_text, "options": options, "in_flow": True, "node_id": target_id, "context": session["context"]}
                 else:
-                    reply_text = f"{next_node.get('text', '')}\n\n📝 Current Question: {question_text}"
+                    # move to await_new_answer
+                    reply_text = f"{conversation_flow['await_new_answer']['text']}\n\n📝 Current Question: {question_text}"
                     session["node_id"] = "await_new_answer"
-                    user_sessions[user_id] = session
-                    return {"reply": reply_text, "options": [], "in_flow": True, "node_id": "await_new_answer", "context": session["context"]}
-            except Exception:
-                return {"reply": "⚠️ Please enter a valid question number (e.g., 1, 2, 3).", "options": [], "in_flow": True, "node_id": "make_changes", "context": session["context"]}
 
-        # await_new_answer branch
+                user_sessions[session_key] = session
+                try:
+                    session_id = await persist_chat_pair(
+                        user_id, session_key, session, session_id, message, reply_text
+                    )
+                except:
+                    logger.exception("Supabase save failed (make_changes).")
+
+                return {
+                    "reply": reply_text,
+                    "options": options,
+                    "in_flow": True,
+                    "node_id": session["node_id"],
+                    "context": session["context"],
+                }
+
+            except Exception:
+                reply_text = "⚠️ Please enter a valid question number (e.g., 1, 2, 3)."
+                try:
+                    session_id = await persist_chat_pair(
+                        user_id, session_key, session, session_id, message, reply_text
+                    )
+                except:
+                    logger.exception("Supabase save failed (invalid change number).")
+
+                return {
+                    "reply": reply_text,
+                    "options": [],
+                    "in_flow": True,
+                    "node_id": "make_changes",
+                    "context": session["context"],
+                }
+
+        # ---------------------------------------------
+        # HANDLE AWAIT_NEW_ANSWER
+        # ---------------------------------------------
         if current_id == "await_new_answer" and node.get("expect_user_input"):
             target_id = session.get("change_target")
+
             if target_id and target_id in session["context"]:
                 session["context"][target_id] = message.strip()
                 session["change_target"] = None
                 session["node_id"] = "show_updated_summary"
-                user_sessions[user_id] = session
+                user_sessions[session_key] = session
+
                 updated_summary = "📝 Updated Summary:\n\n"
                 for idx, (key, val) in enumerate(session["context"].items(), start=1):
-                    if key in conversation_flow:
-                        q_text = conversation_flow[key].get("text", "")
-                        updated_summary += f"{idx}. {q_text} → {val}\n"
-                next_node = conversation_flow.get("show_updated_summary", {})
+                    q_text = conversation_flow[key].get("text", "")
+                    updated_summary += f"{idx}. {q_text} → {val}\n"
+
+                reply_text = conversation_flow["show_updated_summary"]["text"].replace(
+                    "{{updated_summary}}", updated_summary
+                )
+                options = conversation_flow["show_updated_summary"].get("options", [])
+
+                try:
+                    session_id = await persist_chat_pair(
+                        user_id, session_key, session, session_id, message, reply_text
+                    )
+                except:
+                    logger.exception("Supabase save failed (await_new_answer).")
+
                 return {
-                    "reply": next_node.get("text", "").replace("{{updated_summary}}", updated_summary),
-                    "options": next_node.get("options", []),
+                    "reply": reply_text,
+                    "options": options,
                     "in_flow": True,
                     "node_id": "show_updated_summary",
                     "context": session["context"],
                 }
 
-        # general expect_user_input handling
-        if node.get("expect_user_input"):
-            # store raw input into context (preserve original semantics)
-            session["context"][node.get("id")] = message
-            session["node_id"] = node.get("next")
-            user_sessions[user_id] = session
-            next_node = conversation_flow.get(node.get("next"))
-            if not next_node:
-                session["in_flow"] = False
-                user_sessions[user_id] = session
-                reply_text = await _get_reply_text(req.message)
-                return {"reply": reply_text, "in_flow": False}
-            return {"reply": next_node.get("text", ""), "options": next_node.get("options", []), "in_flow": True, "node_id": node.get("next"), "context": session["context"]}
+        # ---------------------------------------------
+        # GENERAL EXPECT_USER_INPUT
+        # ---------------------------------------------
+        if node.get("expect_user_input") or node.get("type") == "input":
+            node_id = node.get("id")
+            if not node_id:
+                node_id = current_id
 
-        # options handling — use flow_manager.find_best_option for fuzzy match
+            session["context"][node_id] = message.strip()
+            session["node_id"] = node.get("next")
+            user_sessions[session_key] = session
+
+            next_node = conversation_flow.get(node["next"])
+            if not next_node:
+                # fall back to normal model response
+                session["in_flow"] = False
+                user_sessions[session_key] = session
+                safe_reply = await _get_reply_text(req.message)
+
+                try:
+                    session_id = await persist_chat_pair(
+                        user_id, session_key, session, session_id, message, safe_reply
+                    )
+                except:
+                    logger.exception("Supabase save failed (fallback input).")
+
+                return {"reply": safe_reply, "in_flow": False}
+
+            reply_text = next_node["text"]
+            options = next_node.get("options", [])
+
+            try:
+                session_id = await persist_chat_pair(
+                    user_id, session_key, session, session_id, message, reply_text
+                )
+            except:
+                logger.exception("Supabase save failed (expect_user_input).")
+
+            return {
+                "reply": reply_text,
+                "options": options,
+                "in_flow": True,
+                "node_id": node["next"],
+                "context": session["context"],
+            }
+
+        # ---------------------------------------------
+        # OPTION SELECTION (THIS WAS BROKEN BEFORE)
+        # ---------------------------------------------
         if "options" in node and node["options"]:
             selected = flow_manager.find_best_option(node["options"], message)
+
             if not selected:
+                mistake = conversation_flow["mistake_prompt"]
+                reply_text = "⚠️ That didn’t match any available option.\n\n Would you like to continue the requirements?"
+
+                # Move to a special pseudo-state inside the same node
                 session["node_id"] = "mistake_prompt"
-                session["in_flow"] = True
-                user_sessions[user_id] = session
-                next_node = conversation_flow.get("mistake_prompt", {})
-                return {"reply": "😕 Oops — that didn’t match any option. Restart requirement flow?", "options": next_node.get("options", []), "in_flow": True, "node_id": "mistake_prompt", "context": session["context"]}
+                session["last_question_node"] = current_id
+                user_sessions[session_key] = session
+
+                try:
+                    session_id = await persist_chat_pair(
+                        user_id, session_key, session, session_id, message, reply_text
+                    )
+                except:
+                    logger.exception("Supabase save failed (mistake_prompt).")
+
+                return {
+                    "reply": reply_text,
+                    "options": mistake.get("options", []),
+                    "in_flow": True,
+                    "node_id": "mistake_prompt",
+                    "context": session["context"],
+                }
+
             session["context"][node["id"]] = selected["label"]
             next_id = selected.get("next")
+
         else:
             next_id = node.get("next")
 
-        if next_id:
-            next_node = conversation_flow.get(next_id)
-            if not next_node:
-                session["in_flow"] = False
-                user_sessions[user_id] = session
-                reply_text = await _get_reply_text(req.message)
-                return {"reply": reply_text, "in_flow": False}
-            session["node_id"] = next_id
-            user_sessions[user_id] = session
+        # ---------------------------------------------
+        # MOVE TO NEXT NODE
+        # ---------------------------------------------
+        next_node = conversation_flow.get(next_id)
 
-            # show summary logic (preserve original)
-            if next_id == "show_summary":
-                summary_text = "📝 Summary of your responses:\n\n"
-                for idx, (key, val) in enumerate(session["context"].items(), start=1):
-                    node_local = conversation_flow.get(key, {})
-                    if node_local and "options" in node_local and not key.startswith(("show_", "submit_")):
-                        q_text = node_local.get("text", "").strip()
-                        if q_text:
-                            summary_text += f"{idx}. {q_text} → {val}\n"
-                next_node = conversation_flow.get("show_summary", {})
-                return {"reply": next_node.get("text", "").replace("{{summary}}", summary_text), "options": next_node.get("options", []), "in_flow": True, "node_id": "show_summary", "context": session["context"]}
+        if not next_node:
+            session["in_flow"] = False
+            user_sessions[session_key] = session
+            safe_reply = await _get_reply_text(req.message)
 
-            if next_id == "submit_response":
-                session["in_flow"] = False
-                user_sessions[user_id] = session
-                return {"reply": next_node.get("text", ""), "options": [], "in_flow": False, "node_id": "submit_response", "context": session["context"]}
+            try:
+                session_id = await persist_chat_pair(
+                    user_id, session_key, session, session_id, message, safe_reply
+                )
+            except:
+                logger.exception("Supabase save failed (no next node).")
 
-            return {"reply": next_node.get("text", ""), "options": next_node.get("options", []), "in_flow": True, "node_id": next_id, "context": session["context"]}
+            return {"reply": safe_reply, "in_flow": False}
 
-        session["in_flow"] = False
-        user_sessions[user_id] = session
+        session["node_id"] = next_id
+        session["in_flow"] = (next_id != "submit_response")
+        user_sessions[session_key] = session
+
+        # special summary nodes
+        if next_id == "show_summary":
+            summary_text = "📝 Summary of your responses:\n\n"
+            for idx, (k, v) in enumerate(session["context"].items(), start=1):
+                q = conversation_flow[k].get("text", "")
+                summary_text += f"{idx}. {q} → {v}\n"
+
+            reply_text = next_node["text"].replace("{{summary}}", summary_text)
+        else:
+            reply_text = next_node["text"]
+
+        options = next_node.get("options", [])
+
+        try:
+            session_id = await persist_chat_pair(
+                user_id, session_key, session, session_id, message, reply_text
+            )
+        except:
+            logger.exception("Supabase save failed (next node).")
+
+        return {
+            "reply": reply_text,
+            "options": options,
+            "in_flow": next_id != "submit_response",
+            "node_id": next_id,
+            "context": session["context"],
+        }
 
     # 3) Greeting handling (robust)
     if is_greeting(message):
         reply_text = GREETING_REPLY
         try:
-            # persist to supabase if configured
-            session_id = req.session_id or session.get("session_id")
-            if not session_id and supabase:
-                existing = supabase.table("chat_sessions").select("id", "title").eq("user_id", user_id).order("updated_at", desc=True).limit(1).execute()
-                if existing.data:
-                    session_id = existing.data[0]["id"]
-                else:
-                    session_id = str(uuid4())
-                    now = datetime.utcnow().isoformat()
-                    insert_row('chat_sessions', {
-                        "id": session_id, "user_id": user_id, "title": "New Chat", "created_at": now, "updated_at": now
-                    })
-            session["session_id"] = session_id
-            user_sessions[user_id] = session
-
-            now = datetime.utcnow().isoformat()
-            if supabase:
-                insert_row('chat_messages', {
-                    "session_id": session_id, "role": "user", "content": message, "created_at": now
-                })
-                insert_row('chat_messages', {
-                    "session_id": session_id, "role": "assistant", "content": reply_text, "created_at": now
-                })
-                # set a smart title if still default
-                session_row = supabase.table("chat_sessions").select("title").eq("id", session_id).execute()
-                current_title = (session_row.data[0]["title"] if session_row.data else "New Chat")
-                if current_title == "New Chat" and message.strip():
-                    smart_title = message[:50].strip().capitalize()
-                    update_row('chat_sessions', {'id': session_id}, {'title': smart_title, 'updated_at': now})
+            session_id = await persist_chat_pair(
+                user_id, session_key, session, session_id, message, reply_text
+            )
         except Exception:
             logger.exception("Supabase save failed (greeting).")
         return {
@@ -339,52 +750,34 @@ async def chat_endpoint(req: ChatRequest):
             "session_id": session_id,
             "messages": [
                 {"role": "user", "content": message},
-                {"role": "assistant", "content": reply_text}
+                {"role": "assistant", "content": reply_text},
             ],
         }
 
     # 4) Standard generation
     reply_text = await _get_reply_text(message)
 
-    # token and context management (if wanted)
+    # token and context management
     try:
-        session_id = req.session_id or session.get("session_id")
-        if session_id not in model_context:
-            reset_model_context(session_id)
+        # use existing or provided session_id for token tracking (can be None key)
+        session_id_for_context = req.session_id or session.get("session_id")
+        if session_id_for_context not in model_context:
+            reset_model_context(session_id_for_context)
         tokens_this_msg = estimate_tokens(message) + estimate_tokens(reply_text)
-        update_model_context(session_id, tokens_this_msg)
-        if model_context[session_id]["tokens_used"] > MAX_CONTEXT_TOKENS - 100:
-            reset_model_context(session_id)
+        update_model_context(session_id_for_context, tokens_this_msg)
+        if (
+            model_context[session_id_for_context]["tokens_used"]
+            > MAX_CONTEXT_TOKENS - 100
+        ):
+            reset_model_context(session_id_for_context)
 
-        # ensure session exists and persist messages
-        if not session_id and supabase:
-            existing = supabase.table("chat_sessions").select("id", "title").eq("user_id", user_id).order("updated_at", desc=True).limit(1).execute()
-            if existing.data:
-                session_id = existing.data[0]['id']
-            else:
-                session_id = str(uuid4())
-                now = datetime.utcnow().isoformat()
-                insert_row('chat_sessions', {
-                    "id": session_id, "user_id": user_id, "title": "New Chat", "created_at": now, "updated_at": now
-                })
-
-        session["session_id"] = session_id
-        user_sessions[user_id] = session
-
-        now = datetime.utcnow().isoformat()
-        if supabase:
-            insert_row('chat_messages', {
-                "session_id": session_id, "role": "user", "content": message, "created_at": now
-            })
-            insert_row('chat_messages', {
-                "session_id": session_id, "role": "assistant", "content": reply_text, "created_at": now
-            })
-            # update smart title if new
-            session_row = supabase.table("chat_sessions").select("title").eq("id", session_id).execute()
-            current_title = (session_row.data[0]["title"] if session_row.data else "New Chat")
-            if current_title == "New Chat" and message.strip():
-                smart_title = message[:50].strip().capitalize()
-                update_row('chat_sessions', {'id': session_id}, {'title': smart_title, 'updated_at': now})
+        # ensure session exists and persist messages (centralized)
+        try:
+            session_id = await persist_chat_pair(
+                user_id, session_key, session, session_id, message, reply_text
+            )
+        except Exception:
+            logger.exception("Supabase save failed during normal chat (persist).")
 
         # schedule FAISS addition (best-effort)
         try:
@@ -400,7 +793,7 @@ async def chat_endpoint(req: ChatRequest):
         "session_id": session_id,
         "messages": [
             {"role": "user", "content": message},
-            {"role": "assistant", "content": reply_text}
+            {"role": "assistant", "content": reply_text},
         ],
     }
 
@@ -430,8 +823,14 @@ async def clear_chat(chat_id: str):
 @router.post("/logout/{user_id}")
 async def logout(user_id: str):
     try:
-        if user_id in user_sessions:
-            del user_sessions[user_id]
+        # Remove both per-user and per-chat sessions for this user
+        keys_to_delete = [
+            k
+            for k in list(user_sessions.keys())
+            if k == user_id or k.startswith(f"{user_id}:")
+        ]
+        for k in keys_to_delete:
+            del user_sessions[k]
         logger.info(f"Logout successful for user {user_id}")
         return {"success": True}
     except Exception as e:
