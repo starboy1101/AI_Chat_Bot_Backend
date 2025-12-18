@@ -1,3 +1,4 @@
+import os
 import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
@@ -11,6 +12,8 @@ from greetings import is_greeting, GREETING_REPLY
 from utils import normalize_text
 from config import MAX_CONTEXT_TOKENS
 from faiss_manager import add as faiss_add
+from pdf_generator import generate_final_requirements_pdf
+from storage_utils import upload_pdf_to_supabase
 
 router = APIRouter(prefix="/chats")
 logger = logging.getLogger("swarai.chats")
@@ -131,13 +134,23 @@ async def get_chats(user_id: str):
 @router.get("/get_chat/{chat_id}")
 async def get_chat(chat_id: str):
     if supabase is None:
-        raise HTTPException(status_code=500, detail='Supabase not configured')
+        raise HTTPException(status_code=500, detail="Supabase not configured")
+
     try:
-        r = supabase.table('chat_messages').select('*').eq('session_id', chat_id).order('created_at', desc=False).execute()
+        r = (
+            supabase
+            .table("chat_messages")
+            .select("id, role, content, attachment, created_at")
+            .eq("session_id", chat_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
         return r.data or []
+
     except Exception:
-        logger.exception('get_chat failed')
-        raise HTTPException(status_code=500, detail='Failed to fetch chat messages')
+        logger.exception("get_chat failed")
+        raise HTTPException(status_code=500, detail="Failed to fetch chat messages")
+
 
 @router.post("/create_chat")
 async def create_chat(payload: CreateChatRequest):
@@ -175,11 +188,6 @@ async def delete_chat(chat_id: str):
         raise HTTPException(status_code=500, detail='Failed to delete chat')
 
 def generate_instant_smart_title(msg: str, in_flow: bool = False) -> str:
-    """
-    Generate a smart, short title without using LLM.
-    Rule-based extraction mimics ChatGPT-style titles.
-    """
-
     if not msg:
         return "New Chat"
 
@@ -234,11 +242,7 @@ def generate_instant_smart_title(msg: str, in_flow: bool = False) -> str:
     return title.capitalize()
 
 
-async def persist_chat_pair(user_id, session_key, session, session_id, user_message, assistant_message):
-    """
-    User message is already saved immediately; this now only saves the assistant message
-    and generates a smart title like ChatGPT.
-    """
+async def persist_chat_pair(user_id, session_key, session, session_id, user_message, assistant_message, attachment=None):
     if not supabase or not session_id:
         return session_id
 
@@ -251,6 +255,7 @@ async def persist_chat_pair(user_id, session_key, session, session_id, user_mess
                 "session_id": session_id,
                 "role": "assistant",
                 "content": assistant_message,
+                "attachment": attachment,
                 "created_at": now,
             },
         )
@@ -606,14 +611,17 @@ async def chat_endpoint(req: ChatRequest):
         # GENERAL EXPECT_USER_INPUT
         # ---------------------------------------------
         if node.get("expect_user_input") or node.get("type") == "input":
-            node_id = node.get("id")
-            if not node_id:
-                node_id = current_id
+            node_id = node.get("id") or current_id
 
-            session["context"][node_id] = message.strip()
+            # ✅ FIX: accumulate multiple queries
+            if node_id == "query_input":
+                session["context"].setdefault("query_input", []).append(message.strip())
+            else:
+                session["context"][node_id] = message.strip()
+
             session["node_id"] = node.get("next")
             user_sessions[session_key] = session
-
+            
             next_node = conversation_flow.get(node["next"])
             if not next_node:
                 # fall back to normal model response
@@ -707,7 +715,46 @@ async def chat_endpoint(req: ChatRequest):
         session["in_flow"] = (next_id != "submit_response")
         user_sessions[session_key] = session
 
-        # special summary nodes
+        # ---------------- FINAL STEP ------------------
+        if next_id == "submit_response":
+            pdf_filename = f"REQ_{session_id}.pdf"
+            pdf_path = os.path.join("generated_pdfs", pdf_filename)
+
+            generate_final_requirements_pdf(
+                context=session["context"],
+                path=pdf_path
+            )
+
+            pdf_url = upload_pdf_to_supabase(pdf_path, pdf_filename)
+
+            reply_text = (
+                "Thank you! Your requirements have been submitted. "
+                "Our team will get back to you shortly.\n\n"
+                "📄 Please find the attached requirements document below."
+            )
+
+            attachment = {
+                "type": "pdf",
+                "name": "Requirements.pdf",
+                "url": pdf_url,
+            }
+
+            try:
+                session_id = await persist_chat_pair(
+                    user_id, session_key, session, session_id, message, reply_text,  attachment=attachment
+                )
+            except:
+                logger.exception("Supabase save failed (submit_response).")
+
+            return {
+                "reply": reply_text,
+                "in_flow": False,
+                "node_id": "submit_response",
+                "attachment": attachment,
+                "context": session["context"],
+            }
+
+        # -------- NORMAL FLOW (NON-FINAL) -------------
         if next_id == "show_summary":
             summary_text = "📝 Summary of your responses:\n\n"
             for idx, (k, v) in enumerate(session["context"].items(), start=1):
@@ -730,7 +777,7 @@ async def chat_endpoint(req: ChatRequest):
         return {
             "reply": reply_text,
             "options": options,
-            "in_flow": next_id != "submit_response",
+            "in_flow": True,
             "node_id": next_id,
             "context": session["context"],
         }

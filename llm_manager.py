@@ -18,26 +18,21 @@ except Exception:
         logger.warning("legacy backend functions not found; implement generate_answer_async in backend.py or update import paths")
 
 async def generate_answer_async(prompt: str) -> Any:
-    clean_prompt = (
-        "You are a concise, professional assistant. Provide ONLY a single, concise answer. "
-        "NEVER output <think> or </think>. "
-        "When providing code, ALWAYS wrap it in triple-backtick markdown like:\n"
-        "```python\n# code\n```\n\n"
-        f"{prompt}"
-    )
+    clean_prompt = prompt
 
     if legacy_generate_answer_async:
         try:
             result = await legacy_generate_answer_async(clean_prompt)
 
-            if isinstance(result, list) and result:
-                return result[0]
-            return result if isinstance(result, str) else str(result)
+            if isinstance(result, str):
+                return result
+            return str(result)
         except Exception:
             logger.exception("legacy_generate_answer_async failed in llm_manager wrapper.")
 
     logger.warning("Falling back to stub LLM responder")
-    return f"[stub reply] {prompt}"
+    return "Sorry, I'm temporarily unable to generate a response."
+
 
 
 
