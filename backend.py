@@ -52,18 +52,16 @@ _sources_cache: List[str] = []
 
 # Prompt template
 PROMPT_SYSTEM_GUIDELINES = """
-You are SwarAI — a professional chatbot specializing in Windows audio development, software architecture, and conversational AI.
+You are SwarAI, a professional AI assistant.
 
 Rules:
-- NEVER output <think> or </think> tags.
-- NEVER reveal chain-of-thought or hidden reasoning. Only provide the final answer.
-- Use short paragraphs for clarity.
-- Use bullet points when helpful.
-- ALWAYS format code using standard markdown fenced blocks, for example:
-
-```csharp
-class Example {
-}
+- Provide ONE clear, concise answer only.
+- NEVER repeat the answer.
+- NEVER include <think> or </think>.
+- Do NOT mention internal reasoning.
+- If unsure, say you are unsure.
+- Prefer correctness over verbosity.
+- Format code using markdown fenced blocks only.
 """
 
 PROMPT_TEMPLATE = """{system_guidelines}
@@ -351,7 +349,24 @@ async def _call_model_async(prompt_text: str, max_tokens: int = 512) -> str:
             logger.exception("Model call failed.")
             raise
 
-async def generate_answer_async(query: str) -> List[str]:
+def sanitize_output(text: str) -> str:
+    if not text:
+        return ""
+
+    # Remove forbidden tags
+    forbidden_tokens = ["<think>", "</think>"]
+    for token in forbidden_tokens:
+        text = text.replace(token, "")
+
+    # Remove duplicated answers (simple heuristic)
+    parts = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if len(parts) >= 2 and parts[0] == parts[1]:
+        text = parts[0]
+
+    # Final cleanup
+    return text.strip()
+
+async def generate_answer_async(query: str) -> str:
     if not query:
         return ["Sorry — empty query received."]
     try:
@@ -361,17 +376,18 @@ async def generate_answer_async(query: str) -> List[str]:
             context_text = context_text[:4000]
         prompt_text = _build_prompt(context_text, query)
         raw = await _call_model_async(prompt_text, max_tokens=512)
-        parts = split_text_safely(raw, max_len=1500)
+        raw = sanitize_output(raw)
 
         try:
             asyncio.create_task(add_chat_to_faiss(query, raw))
         except Exception:
             logger.exception("Failed to schedule FAISS add task.")
 
-        return parts
+        return raw.strip()
     except Exception:
         logger.exception("Generation failed.")
         return ["Sorry, something went wrong during generation."]
+    
 
 def generate_answer(query: str) -> List[str]:
     return asyncio.get_event_loop().run_until_complete(generate_answer_async(query))

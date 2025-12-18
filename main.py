@@ -6,11 +6,14 @@ from chats import router as chats_router
 from config import CORS_ORIGINS
 import uvicorn
 from backend import load_models_if_needed  
+from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger("swarai.main")
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="SwarAI Backend", version="2.0")
+
+app.mount("/files", StaticFiles(directory="generated_pdfs"), name="files")
 
 app.add_middleware(
     CORSMiddleware,
