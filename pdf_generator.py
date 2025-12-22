@@ -9,6 +9,7 @@ from reportlab.platypus import (
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+from io import BytesIO
 
 PDF_FIELD_MAPPING = {
     "start": "Type of service",
@@ -82,12 +83,12 @@ def build_queries(context: dict) -> list[str]:
     return []
 
 
-
-def generate_final_requirements_pdf(context: dict, path: str):
+def generate_final_requirements_pdf(context: dict) -> bytes:
     print("PDF CONTEXT KEYS:", context.keys())
-    os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    doc = SimpleDocTemplate(path, pagesize=A4)
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     elements = []
 
@@ -109,8 +110,10 @@ def generate_final_requirements_pdf(context: dict, path: str):
         elements.append(Paragraph("<b>Your Queries</b>", styles["Heading2"]))
 
         for idx, q in enumerate(queries, start=1):
-            elements.append(
-                Paragraph(f"{idx}. {q}", styles["Normal"])
-            )
+            elements.append(Paragraph(f"{idx}. {q}", styles["Normal"]))
 
     doc.build(elements)
+
+    buffer.seek(0)
+    return buffer.read()
+

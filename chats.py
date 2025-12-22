@@ -1,5 +1,6 @@
 import os
 import logging
+import uuid
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
 from uuid import uuid4
@@ -717,15 +718,16 @@ async def chat_endpoint(req: ChatRequest):
 
         # ---------------- FINAL STEP ------------------
         if next_id == "submit_response":
-            pdf_filename = f"REQ_{session_id}.pdf"
-            pdf_path = os.path.join("generated_pdfs", pdf_filename)
+            pdf_filename = f"REQ_{session_id}_{uuid.uuid4().hex}.pdf"
 
-            generate_final_requirements_pdf(
-                context=session["context"],
-                path=pdf_path
+            pdf_bytes = generate_final_requirements_pdf(
+                context=session["context"]
             )
 
-            pdf_url = upload_pdf_to_supabase(pdf_path, pdf_filename)
+            pdf_url = upload_pdf_to_supabase(
+                pdf_bytes=pdf_bytes,
+                filename=pdf_filename
+            )
 
             reply_text = (
                 "Thank you! Your requirements have been submitted. "
