@@ -93,41 +93,12 @@ def matches_services_trigger(text: str) -> bool:
 
     text_n = normalize_text(text)
 
-    # Exact phrases
-    main_phrases = [
-        "try your service",
-        "try your services",
-        "try service",
-        "try services",
-        "start service flow",
-    ]
-
-    # Acceptable typos
-    service_typos = [
-        "sevice",
-        "servise",
-        "serivce",
-        "srvice",
-        "srevice",
-    ]
-
-    # Check multi-word triggers
-    for p in main_phrases:
-        if p in text_n:
-            return True
-
-    # Check typo patterns after "try your"
-    if text_n.startswith("try your "):
-        for typo in service_typos:
-            if typo in text_n:
-                return True
-
-    # Strict regex
-    if re.search(r"\btry\b.*\bservice(s)?\b", text_n):
-        return True
-
-    return False
-
+    return bool(
+        re.search(
+            r"\bservi?c?e?s?\b|\bse?rvi?ce\b|\bsrvice\b|\bsrevice\b",
+            text_n
+        )
+    )
 
 def split_text_safely(text: str, max_len: int = 1500) -> List[str]:
     text = (text or "").strip()
