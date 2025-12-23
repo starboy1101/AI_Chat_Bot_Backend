@@ -1,3 +1,9 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+
+# FAISS / vector db
+faiss_db/
+*.faiss
+*.pkl
