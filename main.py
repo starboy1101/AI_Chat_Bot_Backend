@@ -13,8 +13,6 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="SwarAI Backend", version="2.0")
 
-app.mount("/files", StaticFiles(directory="generated_pdfs"), name="files")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[CORS_ORIGINS] if isinstance(CORS_ORIGINS, str) else CORS_ORIGINS,
