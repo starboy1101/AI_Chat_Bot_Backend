@@ -7,7 +7,7 @@ faiss-cpu
 passlib[bcrypt]==1.7.4
 pyjwt
 python-multipart
-# llama-cpp-python
+llama-cpp-python==0.2.83
 huggingface-hub
 langchain-core
 supabase
