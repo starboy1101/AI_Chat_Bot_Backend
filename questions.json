@@ -1,6 +1,22 @@
 {
   "start": {
     "id": "start",
+    "text": "Great! Before we proceed, do you already have a PDF, DOC, DOCX, or TXT document describing your requirements?",
+    "options": [
+      { "label": "Yes, I have a file", "next": "pdf_upload" },
+      { "label": "No, I don’t have a file", "next": "service_select" }
+    ]
+  },
+
+  "pdf_upload": {
+    "id": "pdf_upload",
+    "text": "Please upload the PDF, DOC, DOCX, or TXT document containing your requirements.",
+    "type": "input",
+    "expect_user_input": true
+  },
+
+  "service_select": {
+    "id": "service_select",
     "text": "Great! What kind of service are you looking for?",
     "options": [
       { "label": "Porting", "next": "Porting_type" },

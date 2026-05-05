@@ -1,0 +1,1178 @@
+{
+  "name": "SwarAI System Visualization",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "mode",
+              "value": "Visual only"
+            },
+            {
+              "name": "purpose",
+              "value": "This workflow is a diagram of the SwarAI frontend and backend. It does not call any API, database, model, or file."
+            },
+            {
+              "name": "scope",
+              "value": "Frontend UI, backend routes, chat orchestration, requirement flow, PDF flow, LLM retrieval, and storage layers."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2",
+      "name": "[Visual] Whole Project Blueprint",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "Entry shell and page routing"
+            },
+            {
+              "name": "details",
+              "value": "Main browser app that leads users into auth, chat, upload, history, profile, and final summary views."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3",
+      "name": "[Frontend] App Shell",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        580,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "Auth screens"
+            },
+            {
+              "name": "details",
+              "value": "Login, register, and guest-entry screens for obtaining tokens and creating authenticated sessions."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4",
+      "name": "[Frontend] Login / Register / Guest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        820,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "Chat workspace"
+            },
+            {
+              "name": "details",
+              "value": "Primary chat view for sending messages, receiving SSE replies, and showing dynamic metadata such as follow-up options and attachments."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5",
+      "name": "[Frontend] Chat Workspace",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        820,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "Requirement upload panel"
+            },
+            {
+              "name": "details",
+              "value": "UI for sending PDF, DOC, DOCX, or TXT requirement files and for continuing manually when no file is provided."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6",
+      "name": "[Frontend] Upload & Requirement Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        820,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "History and profile panel"
+            },
+            {
+              "name": "details",
+              "value": "Screens for loading previous chats, browsing message history, and updating user profile information."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7",
+      "name": "[Frontend] History & Profile",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        820,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Frontend"
+            },
+            {
+              "name": "component",
+              "value": "Summary and download view"
+            },
+            {
+              "name": "details",
+              "value": "Presents collected requirements, change-review loop, and downloadable generated PDF links."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8",
+      "name": "[Frontend] Summary / Download",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2920,
+        470
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "FastAPI app and CORS"
+            },
+            {
+              "name": "details",
+              "value": "Application entrypoint that mounts auth and chat routers, enables CORS, and exposes the root health route."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9",
+      "name": "[Backend] FastAPI App",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1080,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Auth router"
+            },
+            {
+              "name": "details",
+              "value": "Handles register, login, and guest session creation, then signs or returns access tokens."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10",
+      "name": "[Backend] /auth Routes",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Chat router"
+            },
+            {
+              "name": "details",
+              "value": "Handles chat requests, chat history, chat creation, user info, search, clear, delete, and logout endpoints."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11",
+      "name": "[Backend] /chats Routes",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Session and request router"
+            },
+            {
+              "name": "details",
+              "value": "Decides whether a request is greeting, guest chat, normal QA, requirement-flow input, or attachment-based extraction."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12",
+      "name": "[Backend] Session & Request Router",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Greeting and guest path"
+            },
+            {
+              "name": "details",
+              "value": "Short path for greetings and guest-mode chat sessions stored in in-memory state."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "13",
+      "name": "[Backend] Greeting / Guest Path",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Normal QA path"
+            },
+            {
+              "name": "details",
+              "value": "Persists the user message, performs retrieval-augmented generation, and stores the assistant reply."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14",
+      "name": "[Backend] Normal QA Path",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Requirement flow engine"
+            },
+            {
+              "name": "details",
+              "value": "Drives the service questionnaire, tracks node_id and context, asks the next missing question, and manages summary or change loops."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "15",
+      "name": "[Backend] Requirement Flow Engine",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Attachment validation and text extraction"
+            },
+            {
+              "name": "details",
+              "value": "Validates base64 attachment payloads, classifies PDF DOC DOCX TXT files, extracts raw text, and uploads original documents."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "16",
+      "name": "[Backend] Attachment Validation & Extraction",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "PDF question extractor"
+            },
+            {
+              "name": "details",
+              "value": "Uses the extractor model to convert uploaded requirement text into structured answers mapped to allowed question IDs."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17",
+      "name": "[Backend] PDF Question Extractor",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "Summary and change loop"
+            },
+            {
+              "name": "details",
+              "value": "Builds numbered summaries, supports make-changes flow, collects final queries, and prepares final submission."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18",
+      "name": "[Backend] Summary / Change Handling",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Backend"
+            },
+            {
+              "name": "component",
+              "value": "PDF generator"
+            },
+            {
+              "name": "details",
+              "value": "Creates partial and final requirement PDFs after extraction or final submission."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "19",
+      "name": "[Backend] PDF Generator",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2340,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Runtime"
+            },
+            {
+              "name": "component",
+              "value": "Startup preload and environment"
+            },
+            {
+              "name": "details",
+              "value": "Loads .env configuration, initializes Supabase, preloads models, warms up LLMs, and configures CORS and runtime settings."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "20",
+      "name": "[Runtime] Config / Startup / Preload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1320,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Knowledge"
+            },
+            {
+              "name": "component",
+              "value": "Knowledge-base builder"
+            },
+            {
+              "name": "details",
+              "value": "build_db.py chunks source files from data/ and writes vector metadata into faiss_db/."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "21",
+      "name": "[AI] Knowledge Builder",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Knowledge"
+            },
+            {
+              "name": "component",
+              "value": "FAISS retrieval layer"
+            },
+            {
+              "name": "details",
+              "value": "Embeds queries, searches the FAISS index, returns top chunks, and can sync historical chat content into retrieval storage."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "22",
+      "name": "[AI] FAISS Index & Retrieval",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2340,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "AI"
+            },
+            {
+              "name": "component",
+              "value": "Embeddings and LLM runtime"
+            },
+            {
+              "name": "details",
+              "value": "Loads sentence-transformers embeddings and llama-cpp chat models, then generates streaming or non-streaming responses."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23",
+      "name": "[AI] Embeddings + LLM",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2600,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Data"
+            },
+            {
+              "name": "component",
+              "value": "Supabase users and JWT-related data"
+            },
+            {
+              "name": "details",
+              "value": "Stores user records and supports login registration flows together with token-based access."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24",
+      "name": "[Data] Supabase Users",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Data"
+            },
+            {
+              "name": "component",
+              "value": "Supabase chats and storage bucket"
+            },
+            {
+              "name": "details",
+              "value": "Stores chat_sessions, chat_messages, uploaded documents, and generated PDF files in the chat-files bucket."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "25",
+      "name": "[Data] Supabase Chats + Storage",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2600,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Data"
+            },
+            {
+              "name": "component",
+              "value": "questions.json flow definition"
+            },
+            {
+              "name": "details",
+              "value": "Defines the guided requirement nodes, options, next steps, summary flow, and change-review steps."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "26",
+      "name": "[Data] questions.json",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "layer",
+              "value": "Response"
+            },
+            {
+              "name": "component",
+              "value": "Response formatting layer"
+            },
+            {
+              "name": "details",
+              "value": "Formats SSE character streams and chat metadata for the UI, including follow-up options and attachment links."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "27",
+      "name": "[Backend] SSE / Metadata Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2340,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "[Visual] Whole Project Blueprint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Visual] Whole Project Blueprint": {
+      "main": [
+        [
+          {
+            "node": "[Frontend] App Shell",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] FastAPI App",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Runtime] Config / Startup / Preload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[AI] Knowledge Builder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Data] questions.json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Frontend] App Shell": {
+      "main": [
+        [
+          {
+            "node": "[Frontend] Login / Register / Guest",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Frontend] Chat Workspace",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Frontend] History & Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Frontend] Login / Register / Guest": {
+      "main": [
+        [
+          {
+            "node": "[Backend] /auth Routes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Frontend] Chat Workspace": {
+      "main": [
+        [
+          {
+            "node": "[Backend] /chats Routes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Frontend] Upload & Requirement Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Frontend] Upload & Requirement Input": {
+      "main": [
+        [
+          {
+            "node": "[Backend] /chats Routes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Frontend] History & Profile": {
+      "main": [
+        [
+          {
+            "node": "[Backend] /chats Routes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] FastAPI App": {
+      "main": [
+        [
+          {
+            "node": "[Backend] /auth Routes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] /chats Routes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Runtime] Config / Startup / Preload": {
+      "main": [
+        [
+          {
+            "node": "[Backend] FastAPI App",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[AI] Embeddings + LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] /auth Routes": {
+      "main": [
+        [
+          {
+            "node": "[Data] Supabase Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] /chats Routes": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Session & Request Router",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Data] Supabase Chats + Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Session & Request Router": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Greeting / Guest Path",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] Normal QA Path",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] Requirement Flow Engine",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] Attachment Validation & Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Greeting / Guest Path": {
+      "main": [
+        [
+          {
+            "node": "[Backend] SSE / Metadata Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Normal QA Path": {
+      "main": [
+        [
+          {
+            "node": "[AI] FAISS Index & Retrieval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Requirement Flow Engine": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Summary / Change Handling",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] SSE / Metadata Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Attachment Validation & Extraction": {
+      "main": [
+        [
+          {
+            "node": "[Backend] PDF Question Extractor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Data] Supabase Chats + Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] PDF Question Extractor": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Requirement Flow Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] Summary / Change Handling": {
+      "main": [
+        [
+          {
+            "node": "[Backend] PDF Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Backend] SSE / Metadata Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] PDF Generator": {
+      "main": [
+        [
+          {
+            "node": "[Data] Supabase Chats + Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[AI] Knowledge Builder": {
+      "main": [
+        [
+          {
+            "node": "[AI] FAISS Index & Retrieval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[AI] FAISS Index & Retrieval": {
+      "main": [
+        [
+          {
+            "node": "[AI] Embeddings + LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[AI] Embeddings + LLM": {
+      "main": [
+        [
+          {
+            "node": "[Backend] SSE / Metadata Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Data] Supabase Users": {
+      "main": [
+        [
+          {
+            "node": "[Frontend] Login / Register / Guest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Data] Supabase Chats + Storage": {
+      "main": [
+        [
+          {
+            "node": "[Frontend] History & Profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "[Frontend] Summary / Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Data] questions.json": {
+      "main": [
+        [
+          {
+            "node": "[Backend] Requirement Flow Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[Backend] SSE / Metadata Response": {
+      "main": [
+        [
+          {
+            "node": "[Frontend] Chat Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "swarai-system-visualization-v1",
+  "meta": {},
+  "id": "swarai-system-visualization",
+  "tags": []
+}

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 
 class LoginRequest(BaseModel):
     user_id: str
@@ -30,6 +30,9 @@ class ChatRequest(BaseModel):
     message: str
     user_id: Optional[str] = "guest"
     session_id: Optional[str] = None
+
+    # PDF-first support
+    attachment: Optional[Dict[str, Any]] = None
 
 class CreateChatRequest(BaseModel):
     user_id: str

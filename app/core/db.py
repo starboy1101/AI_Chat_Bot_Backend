@@ -1,6 +1,8 @@
 import logging
+
 from supabase import create_client
-from config import SUPABASE_URL, SUPABASE_KEY
+
+from app.core.config import SUPABASE_KEY, SUPABASE_URL
 
 logger = logging.getLogger("swarai.db")
 
@@ -8,10 +10,10 @@ try:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise RuntimeError("Supabase environment not configured")
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    logger.info("✅ Supabase client initialized successfully.")
-except Exception as e:
+    logger.info("Supabase client initialized successfully.")
+except Exception as exc:
     supabase = None
-    logger.warning(f"⚠️ Supabase client not configured: {e}")
+    logger.warning("Supabase client not configured: %s", exc)
 
 
 def insert_row(table: str, payload: dict):
