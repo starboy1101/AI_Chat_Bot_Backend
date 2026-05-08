@@ -25,6 +25,12 @@ from app.services.pdf_question_extractor import ALLOWED_QUESTION_IDS, extract_an
 from app.services.storage_utils import upload_file_to_supabase, upload_pdf_to_supabase
 from app.state.chat_state import user_sessions
 from app.utils.greetings import GREETING_REPLY
+from srs_generator.extractor import SRSIntelligencePipeline
+from srs_generator.models import SRSProject
+from srs_generator.section_instructions import PROJECT_FIELD_LABELS, build_project_field_question
+from srs_generator.template_engine import SrsTemplateRenderer
+from srs_generator.utils import safe_filename, write_json
+from srs_generator.validator import SRSValidator
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +60,100 @@ _DOC_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 _TEXT_MIME_TYPES = {"text/plain", "text"}
+
+SRS_FIELD_LABELS = {
+    **PROJECT_FIELD_LABELS,
+    "inputs": "Inputs",
+    "outputs": "Outputs",
+    "process": "Process",
+    "validation": "Validation / verification criteria",
+    "acceptance_criteria": "Acceptance criteria",
+    "asil": "ASIL classification",
+}
+
+
+def _srs_project_to_dict(project: SRSProject) -> Dict[str, Any]:
+    if hasattr(project, "model_dump"):
+        return project.model_dump(mode="json")  # type: ignore[attr-defined]
+    return project.dict()
+
+
+def _srs_project_from_dict(data: Dict[str, Any]) -> SRSProject:
+    if hasattr(SRSProject, "model_validate"):
+        return SRSProject.model_validate(data)  # type: ignore[attr-defined]
+    return SRSProject.parse_obj(data)
+
+
+def _build_srs_missing_questions(project: SRSProject) -> List[Dict[str, str]]:
+    questions: List[Dict[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+
+    for finding in project.validation_findings:
+        if finding.code not in {"MISSING_REQUIREMENT_FIELD", "MISSING_ASIL", "MISSING_PROJECT_FIELD"}:
+            continue
+        if not finding.field:
+            continue
+        key = (finding.req_id or "__project__", finding.field)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        label = SRS_FIELD_LABELS.get(finding.field, finding.field.replace("_", " ").title())
+        if finding.code == "MISSING_PROJECT_FIELD":
+            questions.append(
+                {
+                    "target": "project",
+                    "field": finding.field,
+                    "question": build_project_field_question(finding.field, project),
+                }
+            )
+        else:
+            req = next((item for item in project.requirements if item.req_id == finding.req_id), None)
+            block = req.logical_block if req else "General"
+            questions.append(
+                {
+                    "target": "requirement",
+                    "req_id": finding.req_id or "",
+                    "field": finding.field,
+                    "question": f"Please provide {label} for {finding.req_id} ({block}).",
+                }
+            )
+
+    return questions
+
+
+def _apply_srs_missing_answer(project: SRSProject, target: Dict[str, str], answer: str) -> SRSProject:
+    req_id = target.get("req_id")
+    field = target.get("field")
+    answer = answer.strip()
+
+    if target.get("target") == "project" and field and hasattr(project, field):
+        setattr(project, field, answer)
+        project.validation_findings = SRSValidator().validate(project)
+        return project
+
+    for req in project.requirements:
+        if req.req_id != req_id:
+            continue
+        if field == "asil":
+            req.metadata.asil = answer
+        elif field and hasattr(req, field):
+            setattr(req, field, answer)
+        req.metadata.confidence = max(float(req.metadata.confidence or 0.0), 0.95)
+        break
+
+    project.validation_findings = SRSValidator().validate(project)
+    return project
+
+
+def _current_srs_missing_question(session: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    questions = session.get("srs_missing_questions")
+    index = int(session.get("srs_missing_index") or 0)
+    if isinstance(questions, list) and 0 <= index < len(questions):
+        question = questions[index]
+        if isinstance(question, dict):
+            return question
+    return None
 
 
 def _infer_attachment_kind(attachment: Any) -> Optional[str]:
@@ -779,6 +879,107 @@ async def handle_pdf_upload_and_extraction(
         session["customer_name"] = extracted_customer_name
         logger.info("[PDF-MERGE] Customer name extracted: %s", extracted_customer_name)
 
+    try:
+        srs_project = SRSIntelligencePipeline().run_bytes(file_bytes, original_file_name)
+        if srs_project.requirements:
+            if _customer_name_from_session(session):
+                srs_project.assumptions.append(f"Customer: {_customer_name_from_session(session)}")
+
+            missing_questions = _build_srs_missing_questions(srs_project)
+            if missing_questions:
+                session["srs_json"] = _srs_project_to_dict(srs_project)
+                session["srs_missing_questions"] = missing_questions
+                session["srs_missing_index"] = 0
+                session["srs_original_file_name"] = original_file_name
+                session["in_flow"] = True
+                session["node_id"] = "__srs_missing_field"
+                session["pdf_mode"] = False
+                session["pdf_processed"] = True
+                user_sessions[session_key] = session
+
+                first_question = missing_questions[0]["question"]
+                reply_text = (
+                    "I extracted the SRS structure, but a few required fields were not available in the uploaded document.\n\n"
+                    f"Requirements extracted: {len(srs_project.requirements)}\n"
+                    f"Missing fields: {len(missing_questions)}\n\n"
+                    f"{first_question}"
+                )
+                await persist_chat_pair(
+                    user_id,
+                    session_key,
+                    session,
+                    session_id,
+                    user_message_for_persist,
+                    reply_text,
+                )
+                return {
+                    "reply": reply_text,
+                    "in_flow": True,
+                    "node_id": "__srs_missing_field",
+                    "srs_missing": {
+                        "total": len(missing_questions),
+                        "current": 1,
+                        "question": first_question,
+                    },
+                }
+
+            generated_docx = SrsTemplateRenderer().render_to_bytes(srs_project)
+            generated_name = f"{safe_filename(srs_project.project_name)}_SRS.docx"
+            generated_url = upload_file_to_supabase(
+                generated_docx,
+                f"SRS_{session_id}_{generated_name}",
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+
+            json_path = f"srs_generator/extracted_json/{safe_filename(srs_project.project_name)}_{session_id}.json"
+            write_json(json_path, _srs_project_to_dict(srs_project))
+
+            session["srs_json"] = _srs_project_to_dict(srs_project)
+            session["srs_docx"] = generated_url
+            session["in_flow"] = False
+            session["node_id"] = None
+            session["pdf_mode"] = False
+            session["pdf_processed"] = True
+            user_sessions[session_key] = session
+
+            missing_count = len(
+                [
+                    finding
+                    for finding in srs_project.validation_findings
+                    if finding.code in {"MISSING_REQUIREMENT_FIELD", "MISSING_PROJECT_FIELD", "MISSING_ASIL"}
+                ]
+            )
+            reply_text = (
+                "SRS generated successfully from the uploaded engineering document.\n\n"
+                f"Project: {srs_project.project_name}\n"
+                f"Requirements extracted: {len(srs_project.requirements)}\n"
+                f"Pipeline confidence: {srs_project.confidence:.2f}\n"
+                f"Missing field warnings: {missing_count}\n\n"
+                "The generated DOCX preserves the master template and duplicates the requirement table for each extracted requirement."
+            )
+            attachment = {
+                "type": "docx",
+                "name": generated_name,
+                "url": generated_url,
+            }
+            await persist_chat_pair(
+                user_id,
+                session_key,
+                session,
+                session_id,
+                user_message_for_persist,
+                reply_text,
+                attachment,
+            )
+            return {
+                "reply": reply_text,
+                "attachment": attachment,
+                "in_flow": False,
+                "srs_json": _srs_project_to_dict(srs_project),
+            }
+    except Exception:
+        logger.exception("SRS intelligence pipeline failed; falling back to legacy requirement flow.")
+
     extracted = await extract_answers_from_pdf(
         pdf_text=extracted_text,
         questions=QUESTIONS,
@@ -1033,6 +1234,111 @@ async def handle_flow_engine(
         reply = await get_llm_reply(message)
         await persist_chat_pair(user_id, session_key, session, session_id, message, reply)
         return {"reply": reply, "in_flow": False}
+
+    if current_id == "__srs_missing_field":
+        answer = message.strip()
+        current_question = _current_srs_missing_question(session)
+        if not current_question:
+            session["in_flow"] = False
+            session["node_id"] = None
+            user_sessions[session_key] = session
+            reply_text = "I could not find the pending SRS clarification. Please upload the document again."
+            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+            return {"reply": reply_text, "in_flow": False}
+
+        if not answer:
+            reply_text = current_question["question"]
+            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+            return {
+                "reply": reply_text,
+                "in_flow": True,
+                "node_id": "__srs_missing_field",
+            }
+
+        srs_data = session.get("srs_json")
+        if not isinstance(srs_data, dict):
+            session["in_flow"] = False
+            session["node_id"] = None
+            user_sessions[session_key] = session
+            reply_text = "The extracted SRS data is no longer available. Please upload the document again."
+            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+            return {"reply": reply_text, "in_flow": False}
+
+        srs_project = _srs_project_from_dict(srs_data)
+        srs_project = _apply_srs_missing_answer(srs_project, current_question, answer)
+        session["srs_json"] = _srs_project_to_dict(srs_project)
+        session["srs_missing_index"] = int(session.get("srs_missing_index") or 0) + 1
+
+        next_question = _current_srs_missing_question(session)
+        if next_question:
+            questions = session.get("srs_missing_questions") or []
+            current_num = int(session.get("srs_missing_index") or 0) + 1
+            reply_text = f"Captured.\n\n{next_question['question']}"
+            user_sessions[session_key] = session
+            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+            return {
+                "reply": reply_text,
+                "in_flow": True,
+                "node_id": "__srs_missing_field",
+                "srs_missing": {
+                    "total": len(questions),
+                    "current": current_num,
+                    "question": next_question["question"],
+                },
+            }
+
+        try:
+            generated_docx = SrsTemplateRenderer().render_to_bytes(srs_project)
+            generated_name = f"{safe_filename(srs_project.project_name)}_SRS.docx"
+            generated_url = upload_file_to_supabase(
+                generated_docx,
+                f"SRS_{session_id}_{generated_name}",
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+            json_path = f"srs_generator/extracted_json/{safe_filename(srs_project.project_name)}_{session_id}.json"
+            write_json(json_path, _srs_project_to_dict(srs_project))
+        except Exception:
+            logger.exception("Failed to finalize clarified SRS document.")
+            reply_text = "I captured the missing details, but could not generate the final SRS document."
+            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+            return {
+                "reply": reply_text,
+                "in_flow": True,
+                "node_id": "__srs_missing_field",
+            }
+
+        attachment = {
+            "type": "docx",
+            "name": generated_name,
+            "url": generated_url,
+        }
+        session["srs_docx"] = generated_url
+        session["srs_missing_questions"] = []
+        session["srs_missing_index"] = 0
+        session["in_flow"] = False
+        session["node_id"] = None
+        user_sessions[session_key] = session
+
+        reply_text = (
+            "Captured. The SRS document is now complete and generated.\n\n"
+            f"Project: {srs_project.project_name}\n"
+            f"Requirements: {len(srs_project.requirements)}"
+        )
+        await persist_chat_pair(
+            user_id,
+            session_key,
+            session,
+            session_id,
+            message,
+            reply_text,
+            attachment,
+        )
+        return {
+            "reply": reply_text,
+            "attachment": attachment,
+            "in_flow": False,
+            "srs_json": _srs_project_to_dict(srs_project),
+        }
 
     if current_id == "__customer_name_input":
         entered_name = message.strip()
@@ -1567,12 +1873,5 @@ async def handle_flow_engine(
         "node_id": next_id,
         "context": session["context"],
     }
-
-
-
-
-
-
-
 
 

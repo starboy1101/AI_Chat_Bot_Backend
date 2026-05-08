@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.chats import router as chats_router
+from app.api.routes.srs import router as srs_router
 from app.core.config import CORS_ORIGINS
 from app.services.backend import preload_models_for_startup
 
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(chats_router)
+app.include_router(srs_router)
 
 
 @app.get("/")

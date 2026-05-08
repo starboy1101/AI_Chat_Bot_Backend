@@ -7,6 +7,7 @@ from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 
 from app.core.config import DATA_DIR, FAISS_DIR, PDF_MAX_PAGES
+from app.core.device import sentence_transformer_device
 
 
 def load_text(path: Path) -> str:
@@ -53,7 +54,7 @@ def read_pdf_text_from_bytes(pdf_bytes: bytes, max_pages: int | None = PDF_MAX_P
 
 
 def _load_embedding_model() -> SentenceTransformer:
-    return SentenceTransformer("all-MiniLM-L6-v2")
+    return SentenceTransformer("all-MiniLM-L6-v2", device=sentence_transformer_device())
 
 
 def build_database(data_dir: str | Path = DATA_DIR, faiss_dir: str | Path = FAISS_DIR) -> None:

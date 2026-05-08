@@ -13,6 +13,7 @@ from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from dotenv import load_dotenv
 
+from app.core.device import default_llama_gpu_layers, sentence_transformer_device
 from app.core.config import FAISS_DIR
 from app.core.db import supabase
 
@@ -118,14 +119,36 @@ def _build_llama_instance(
     return Llama(**kwargs)
 
 
+def _build_llama_with_device_fallback(**kwargs: Any) -> Any:
+    n_gpu_layers = int(kwargs.get("n_gpu_layers", 0) or 0)
+    if n_gpu_layers == 0:
+        logger.info("Loading Llama on CPU.")
+        return _build_llama_instance(**kwargs)
+
+    try:
+        logger.info("Loading Llama with GPU acceleration (n_gpu_layers=%s).", n_gpu_layers)
+        return _build_llama_instance(**kwargs)
+    except Exception:
+        logger.exception(
+            "Failed to load Llama with GPU acceleration. Retrying on CPU. "
+            "If you expected GPU support, reinstall llama-cpp-python with CUDA enabled."
+        )
+        cpu_kwargs = dict(kwargs)
+        cpu_kwargs["n_gpu_layers"] = 0
+        cpu_kwargs["offload_kqv"] = False
+        cpu_kwargs["flash_attn"] = False
+        return _build_llama_instance(**cpu_kwargs)
+
+
 def _load_models_and_index_sync():
     global embed_model, llm, pdf_llm, _index_in_memory, _faiss_mtime, _chunks_cache, _sources_cache
 
     os.makedirs(FAISS_DIR, exist_ok=True)
 
     if embed_model is None:
-        embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-        logger.info("SentenceTransformer loaded.")
+        device = sentence_transformer_device()
+        embed_model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+        logger.info("SentenceTransformer loaded on %s.", device)
 
     if llm is None:
         # Download model artifact once (may take time). Adjust repo / filename as needed.
@@ -134,13 +157,13 @@ def _load_models_and_index_sync():
             filename=os.getenv("LLAMA_FILENAME")
         )
         cpu_threads = max(1, os.cpu_count() or 1)
-        llm = _build_llama_instance(
+        llm = _build_llama_with_device_fallback(
             model_path=model_path,
             n_ctx=_env_int("LLM_N_CTX", 2048),
             n_batch=_env_int("LLM_N_BATCH", 128),
             n_threads=_env_int("LLM_N_THREADS", cpu_threads),
             n_threads_batch=_env_int("LLM_N_THREADS_BATCH", cpu_threads),
-            n_gpu_layers=_env_int("LLM_N_GPU_LAYERS", 0),
+            n_gpu_layers=_env_int("LLM_N_GPU_LAYERS", default_llama_gpu_layers()),
             chat_format=_resolve_chat_format("LLM_CHAT_FORMAT", "chatml"),
             offload_kqv=_env_bool("LLM_OFFLOAD_KQV", True),
             flash_attn=_env_bool("LLM_FLASH_ATTN", False),
@@ -180,13 +203,16 @@ def _load_pdf_extractor_model_sync():
         filename=os.getenv("PDF_EXTRACTOR_FILENAME"),
     )
     cpu_threads = max(1, os.cpu_count() or 1)
-    pdf_llm = _build_llama_instance(
+    pdf_llm = _build_llama_with_device_fallback(
         model_path=pdf_model_path,
         n_ctx=_env_int("PDF_EXTRACTOR_N_CTX", 4096),
         n_batch=_env_int("PDF_EXTRACTOR_N_BATCH", 256),
         n_threads=_env_int("PDF_EXTRACTOR_N_THREADS", _env_int("LLM_N_THREADS", cpu_threads)),
         n_threads_batch=_env_int("PDF_EXTRACTOR_N_THREADS_BATCH", _env_int("LLM_N_THREADS_BATCH", cpu_threads)),
-        n_gpu_layers=_env_int("PDF_EXTRACTOR_N_GPU_LAYERS", _env_int("LLM_N_GPU_LAYERS", 0)),
+        n_gpu_layers=_env_int(
+            "PDF_EXTRACTOR_N_GPU_LAYERS",
+            _env_int("LLM_N_GPU_LAYERS", default_llama_gpu_layers()),
+        ),
         chat_format=_resolve_chat_format("PDF_EXTRACTOR_CHAT_FORMAT", "chatml"),
         offload_kqv=_env_bool("PDF_EXTRACTOR_OFFLOAD_KQV", _env_bool("LLM_OFFLOAD_KQV", True)),
         flash_attn=_env_bool("PDF_EXTRACTOR_FLASH_ATTN", _env_bool("LLM_FLASH_ATTN", False)),
