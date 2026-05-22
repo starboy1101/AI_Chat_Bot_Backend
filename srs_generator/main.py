@@ -6,6 +6,7 @@ from pathlib import Path
 from srs_generator.extractor import SRSIntelligencePipeline
 from srs_generator.template_engine import SrsTemplateRenderer
 from srs_generator.utils import safe_filename, write_json
+from srs_generator.validator import fill_missing_srs_fields
 
 
 def build_srs(
@@ -14,7 +15,7 @@ def build_srs(
     output_dir: str | Path = "srs_generator/output_docs",
     json_dir: str | Path = "srs_generator/extracted_json",
 ) -> tuple[Path, Path]:
-    project = SRSIntelligencePipeline().run_path(input_path)
+    project = fill_missing_srs_fields(SRSIntelligencePipeline().run_path(input_path))
     base_name = safe_filename(project.project_name)
     json_path = Path(json_dir) / f"{base_name}.json"
     output_path = Path(output_dir) / f"{base_name}_SRS.docx"
@@ -38,4 +39,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

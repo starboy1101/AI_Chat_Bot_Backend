@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from app.core.db import supabase
+from app.state.chat_state import (
+    append_guest_message,
+    ensure_guest_chat,
+    is_guest_user,
+    update_guest_chat_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +18,11 @@ async def save_user_message_immediately(
     user_id: str,
     message: str,
 ):
+    if is_guest_user(user_id):
+        if session_id and message:
+            append_guest_message(user_id, session_id, "user", message)
+        return
+
     if not supabase:
         return
 
@@ -38,6 +49,40 @@ async def persist_chat_pair(
     attachment: Optional[Dict[str, Any]] = None,
     user_attachment: Optional[Dict[str, Any]] = None,
 ):
+    if user_attachment is None and user_message is not None:
+        pending_attachment = session.pop("_pending_user_attachment", None)
+        if isinstance(pending_attachment, dict):
+            user_attachment = pending_attachment
+
+    if is_guest_user(user_id):
+        if not session_id:
+            session_id, ensured_session, _ = ensure_guest_chat(user_id)
+            session.update(ensured_session)
+            session["session_id"] = session_id
+
+        user_text = user_message.strip() if isinstance(user_message, str) else ""
+        if user_text or user_attachment:
+            append_guest_message(
+                user_id=user_id,
+                chat_id=session_id,
+                role="user",
+                content=user_text,
+                attachment=user_attachment,
+            )
+
+        if assistant_message is not None:
+            assistant_text = assistant_message.strip()
+            if assistant_text:
+                append_guest_message(
+                    user_id=user_id,
+                    chat_id=session_id,
+                    role="assistant",
+                    content=assistant_text,
+                    attachment=attachment,
+                )
+
+        return session_id
+
     if not supabase or not session_id:
         return session_id
 
@@ -142,13 +187,23 @@ def update_session_title_if_needed(
     if session.get("title_set"):
         return
 
-    if not supabase or not session_id or not message:
+    if not session_id or not message:
         return
 
     title = generate_instant_smart_title(message, in_flow=in_flow)
 
+    session["title_set"] = True
+
+    if is_guest_user(str(session.get("guest_user_id", ""))) or session.get("guest"):
+        user_id = session.get("guest_user_id")
+        if isinstance(user_id, str):
+            update_guest_chat_title(user_id, session_id, title)
+        return
+
+    if not supabase:
+        return
+
     try:
         supabase.table("chat_sessions").update({"title": title}).eq("id", session_id).execute()
-        session["title_set"] = True
     except Exception:
         logger.exception("Failed to update chat title.")

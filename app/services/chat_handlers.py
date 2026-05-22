@@ -5,13 +5,17 @@ import html
 import json
 import re
 import zipfile
+from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+from uuid import uuid4
 
 # logging
 import logging
 
 from app.core.config import FLOW_FILE
+from app.core.db import insert_row, supabase
 from app.models.schemas import ChatRequest
 from app.services.backend import generate_answer_async, matches_services_trigger
 from app.services.chat_persistence import (
@@ -23,14 +27,14 @@ from app.services.flows import conversation_flow, flow_manager
 from app.services.pdf_generator import generate_final_requirements_pdf
 from app.services.pdf_question_extractor import ALLOWED_QUESTION_IDS, extract_answers_from_pdf
 from app.services.storage_utils import upload_file_to_supabase, upload_pdf_to_supabase
-from app.state.chat_state import user_sessions
+from app.state.chat_state import ensure_guest_chat, is_guest_user, user_sessions
 from app.utils.greetings import GREETING_REPLY
 from srs_generator.extractor import SRSIntelligencePipeline
 from srs_generator.models import SRSProject
-from srs_generator.section_instructions import PROJECT_FIELD_LABELS, build_project_field_question
+from srs_generator.section_instructions import PROJECT_FIELD_LABELS
 from srs_generator.template_engine import SrsTemplateRenderer
-from srs_generator.utils import safe_filename, write_json
-from srs_generator.validator import SRSValidator
+from srs_generator.utils import safe_filename, truthy_text, write_json
+from srs_generator.validator import FALLBACK_TEXT, SRSValidator, fill_missing_srs_fields
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +63,24 @@ _DOC_MIME_TYPES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-_TEXT_MIME_TYPES = {"text/plain", "text"}
-
-SRS_FIELD_LABELS = {
-    **PROJECT_FIELD_LABELS,
-    "inputs": "Inputs",
-    "outputs": "Outputs",
-    "process": "Process",
-    "validation": "Validation / verification criteria",
-    "acceptance_criteria": "Acceptance criteria",
-    "asil": "ASIL classification",
+_TEXT_MIME_TYPES = {
+    "text/plain",
+    "text",
+    "text/markdown",
+    "text/csv",
+    "text/html",
+    "application/rtf",
+    "application/x-rtf",
 }
+_IMAGE_CONTENT_TYPES = {
+    "gif": "image/gif",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
+}
+
+SRS_OUTPUT_DIR = Path("srs_generator/output_docs")
 
 
 def _srs_project_to_dict(project: SRSProject) -> Dict[str, Any]:
@@ -84,51 +95,47 @@ def _srs_project_from_dict(data: Dict[str, Any]) -> SRSProject:
     return SRSProject.parse_obj(data)
 
 
+def _save_srs_docx_to_output_dir(project: SRSProject, docx_bytes: bytes) -> Dict[str, str]:
+    SRS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{safe_filename(project.project_name)}_SRS.docx"
+    output_path = SRS_OUTPUT_DIR / filename
+    output_path.write_bytes(docx_bytes)
+    return {
+        "filename": filename,
+        "path": str(output_path),
+        "download_url": f"/srs/output/{filename}",
+    }
+
+
 def _build_srs_missing_questions(project: SRSProject) -> List[Dict[str, str]]:
-    questions: List[Dict[str, str]] = []
-    seen: set[Tuple[str, str]] = set()
+    """Dormant clarification-question builder for a future interactive mode.
 
-    for finding in project.validation_findings:
-        if finding.code not in {"MISSING_REQUIREMENT_FIELD", "MISSING_ASIL", "MISSING_PROJECT_FIELD"}:
-            continue
-        if not finding.field:
-            continue
-        key = (finding.req_id or "__project__", finding.field)
-        if key in seen:
-            continue
-        seen.add(key)
+    The active flow must not ask remaining SRS questions. Missing values are
+    auto-filled through fill_missing_srs_fields() using FALLBACK_TEXT.
+    """
+    return []
 
-        label = SRS_FIELD_LABELS.get(finding.field, finding.field.replace("_", " ").title())
-        if finding.code == "MISSING_PROJECT_FIELD":
-            questions.append(
-                {
-                    "target": "project",
-                    "field": finding.field,
-                    "question": build_project_field_question(finding.field, project),
-                }
-            )
-        else:
-            req = next((item for item in project.requirements if item.req_id == finding.req_id), None)
-            block = req.logical_block if req else "General"
-            questions.append(
-                {
-                    "target": "requirement",
-                    "req_id": finding.req_id or "",
-                    "field": finding.field,
-                    "question": f"Please provide {label} for {finding.req_id} ({block}).",
-                }
-            )
-
-    return questions
+    # Future interactive mode can be restored here with:
+    # missing field name, field definition/purpose, and why it is needed.
 
 
-def _apply_srs_missing_answer(project: SRSProject, target: Dict[str, str], answer: str) -> SRSProject:
+def _apply_srs_missing_answer(
+    project: SRSProject,
+    target: Dict[str, str],
+    answer: str,
+    attachment: Optional[Dict[str, Any]] = None,
+) -> SRSProject:
     req_id = target.get("req_id")
     field = target.get("field")
     answer = answer.strip()
 
     if target.get("target") == "project" and field and hasattr(project, field):
         setattr(project, field, answer)
+        if attachment:
+            project.open_questions.append(
+                f"Attachment for {PROJECT_FIELD_LABELS.get(field, field)}: "
+                f"{attachment.get('name') or 'Image'} - {attachment.get('url') or ''}"
+            )
         project.validation_findings = SRSValidator().validate(project)
         return project
 
@@ -137,8 +144,18 @@ def _apply_srs_missing_answer(project: SRSProject, target: Dict[str, str], answe
             continue
         if field == "asil":
             req.metadata.asil = answer
+        elif field in {"critical", "feasible"}:
+            setattr(req, field, truthy_text(answer))
         elif field and hasattr(req, field):
             setattr(req, field, answer)
+        if attachment:
+            req.attachments.append(
+                {
+                    **attachment,
+                    "field": field,
+                    "answer": answer,
+                }
+            )
         req.metadata.confidence = max(float(req.metadata.confidence or 0.0), 0.95)
         break
 
@@ -169,9 +186,67 @@ def _infer_attachment_kind(attachment: Any) -> Optional[str]:
         return "docx"
     if raw_name.endswith(".doc") or raw_type in {"doc"}:
         return "doc"
-    if raw_name.endswith(".txt") or raw_type in {"txt", "plain", "text"} or raw_type in _TEXT_MIME_TYPES:
+    if (
+        raw_name.endswith((".txt", ".md", ".markdown", ".csv", ".rtf", ".html", ".htm"))
+        or raw_type in {"txt", "plain", "text", "md", "markdown", "csv", "rtf", "html"}
+        or raw_type in _TEXT_MIME_TYPES
+        or raw_type.startswith("text/")
+    ):
         return "txt"
+    if raw_name.endswith((".jpg", ".jpeg")) or raw_type in {"jpg", "jpeg", "image/jpg", "image/jpeg"}:
+        return "jpg"
+    if raw_name.endswith(".png") or raw_type in {"png", "image/png"}:
+        return "png"
+    if raw_name.endswith(".gif") or raw_type in {"gif", "image/gif"}:
+        return "gif"
+    if raw_name.endswith(".webp") or raw_type in {"webp", "image/webp"}:
+        return "webp"
     return None
+
+
+def _decode_attachment_bytes(attachment: Dict[str, Any]) -> bytes:
+    encoded_file = attachment.get("bytes")
+    if not isinstance(encoded_file, str) or not encoded_file.strip():
+        raise ValueError("Attachment is missing content bytes.")
+
+    encoded_file = encoded_file.strip()
+    if encoded_file.lower().startswith("data:") and "," in encoded_file:
+        encoded_file = encoded_file.split(",", 1)[1]
+    return base64.b64decode(encoded_file, validate=True)
+
+
+def _attachment_display_type(kind: str) -> str:
+    return "image" if kind in _IMAGE_CONTENT_TYPES else kind
+
+
+def _attachment_content_type(kind: str) -> Optional[str]:
+    if kind in _IMAGE_CONTENT_TYPES:
+        return _IMAGE_CONTENT_TYPES[kind]
+    return None
+
+
+async def prepare_user_attachment(attachment: Optional[Dict[str, Any]], session_id: str) -> Optional[Dict[str, Any]]:
+    if not isinstance(attachment, dict):
+        return None
+
+    kind = _infer_attachment_kind(attachment)
+    if not kind:
+        raise ValueError("Unsupported attachment type.")
+
+    original_name = str(attachment.get("name") or f"uploaded.{kind}").strip() or f"uploaded.{kind}"
+    file_bytes = _decode_attachment_bytes(attachment)
+    storage_name = f"CHAT_{session_id}_{uuid4().hex}_{safe_filename(original_name)}"
+    file_url = upload_file_to_supabase(
+        file_bytes,
+        storage_name,
+        content_type=_attachment_content_type(kind),
+    )
+    return {
+        "type": _attachment_display_type(kind),
+        "kind": kind,
+        "name": original_name,
+        "url": file_url,
+    }
 
 
 def _normalize_extracted_text(raw_text: str) -> str:
@@ -207,20 +282,33 @@ def _extract_docx_text(docx_bytes: bytes) -> str:
 
 
 def _extract_txt_text(txt_bytes: bytes) -> str:
+    text = ""
     for encoding in ("utf-8", "utf-16", "utf-16le", "utf-16be", "latin-1"):
         try:
             decoded = txt_bytes.decode(encoding, errors="strict")
             text = _normalize_extracted_text(decoded)
             if len(text) >= 40:
-                return text
+                break
         except Exception:
             continue
 
-    decoded = txt_bytes.decode("utf-8", errors="ignore")
-    text = _normalize_extracted_text(decoded)
+    if len(text) < 40:
+        decoded = txt_bytes.decode("utf-8", errors="ignore")
+        text = _normalize_extracted_text(decoded)
     if len(text) < 40:
         raise ValueError("TXT unreadable or empty")
+    if re.search(r"<html\b|<body\b|<p\b|^\\rtf", text, flags=re.I):
+        return _strip_lightweight_markup(text)
     return text
+
+
+def _strip_lightweight_markup(text: str) -> str:
+    text = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", text, flags=re.I | re.S)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\\'[0-9a-fA-F]{2}", " ", text)
+    text = re.sub(r"\\[a-zA-Z]+\d* ?", " ", text)
+    text = text.replace("{", " ").replace("}", " ")
+    return _normalize_extracted_text(html.unescape(text))
 
 
 def _extract_doc_text(doc_bytes: bytes) -> str:
@@ -257,6 +345,16 @@ def _extract_text_from_uploaded_document(file_bytes: bytes, kind: str) -> str:
     if kind == "doc":
         return _extract_doc_text(file_bytes)
     raise ValueError(f"Unsupported attachment type: {kind}")
+
+
+def _run_srs_pipeline_with_text_fallback(file_bytes: bytes, source_name: str, extracted_text: str) -> SRSProject:
+    pipeline = SRSIntelligencePipeline()
+    try:
+        return pipeline.run_bytes(file_bytes, source_name)
+    except Exception:
+        logger.exception("SRS parser failed for original upload bytes; retrying extracted text.")
+        text_name = re.sub(r"\.[A-Za-z0-9]+$", "", source_name or "uploaded_document") + ".txt"
+        return pipeline.run_bytes((extracted_text or "").encode("utf-8"), text_name)
 
 
 def _option_labels(options: Any) -> List[str]:
@@ -349,8 +447,56 @@ def _entry_value_to_text(entry: Optional[dict]) -> str:
     if value in (None, "", []):
         return "N/A"
     if isinstance(value, list):
-        return ", ".join(str(v) for v in value)
-    return str(value)
+        text = ", ".join(str(v) for v in value)
+    else:
+        text = str(value)
+
+    attachments = entry.get("attachments")
+    if not isinstance(attachments, list):
+        single = entry.get("attachment")
+        attachments = [single] if isinstance(single, dict) else []
+    attachment_text = ", ".join(
+        f"{item.get('name') or 'Attachment'}: {item.get('url')}"
+        for item in attachments
+        if isinstance(item, dict) and item.get("url")
+    )
+    if attachment_text:
+        return f"{text} [Attachment: {attachment_text}]"
+    return text
+
+
+def _pending_answer_attachment(session: dict) -> Optional[Dict[str, Any]]:
+    attachment = session.get("_pending_user_attachment")
+    return attachment if isinstance(attachment, dict) else None
+
+
+def _attach_to_entry(entry: Dict[str, Any], attachment: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not attachment:
+        return entry
+    entry["attachment"] = attachment
+    entry["attachments"] = [attachment]
+    return entry
+
+
+def _append_attachment_to_entry(entry: Dict[str, Any], attachment: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not attachment:
+        return entry
+    attachments = entry.setdefault("attachments", [])
+    if not isinstance(attachments, list):
+        attachments = []
+        entry["attachments"] = attachments
+    attachments.append(attachment)
+    entry["attachment"] = attachment
+    return entry
+
+
+def _answer_value_with_attachment(message: str, attachment: Optional[Dict[str, Any]]) -> str:
+    text = (message or "").strip()
+    if text:
+        return text
+    if attachment:
+        return str(attachment.get("name") or "Image uploaded")
+    return ""
 
 
 def _extract_query_values_from_context(ctx: Any) -> List[str]:
@@ -479,6 +625,42 @@ def _set_query_by_index(session: dict, query_index: int, new_value: str) -> bool
     return False
 
 
+def _append_query_attachment_by_index(
+    session: dict,
+    query_index: int,
+    attachment: Optional[Dict[str, Any]],
+) -> bool:
+    if query_index < 0 or not attachment:
+        return False
+    remaining = query_index
+
+    context = session.get("context")
+    if isinstance(context, dict):
+        query_entry = context.get("query_input")
+        if isinstance(query_entry, dict) and isinstance(query_entry.get("value"), list):
+            values = query_entry["value"]
+            if remaining < len(values):
+                _append_attachment_to_entry(query_entry, attachment)
+                return True
+            remaining -= len(values)
+
+    product_contexts = session.get("product_contexts")
+    if isinstance(product_contexts, dict):
+        for product_name in session.get("product_order") or list(product_contexts.keys()):
+            product_ctx = product_contexts.get(product_name)
+            if not isinstance(product_ctx, dict):
+                continue
+            query_entry = product_ctx.get("query_input")
+            if not isinstance(query_entry, dict) or not isinstance(query_entry.get("value"), list):
+                continue
+            values = query_entry["value"]
+            if remaining < len(values):
+                _append_attachment_to_entry(query_entry, attachment)
+                return True
+            remaining -= len(values)
+    return False
+
+
 def _relevant_requirement_ids(context: dict) -> List[str]:
     service_key = _service_key_from_context(context)
     excluded = SERVICE_EXCLUDED_REQUIREMENTS.get(service_key, set())
@@ -582,7 +764,13 @@ async def handle_guest_chat(user_id: str, message: str):
 
 async def init_or_get_session(req: ChatRequest, user_id: str):
     raw_session_id = req.session_id
-    session_key = f"{user_id}:{raw_session_id}" if raw_session_id else user_id
+
+    if is_guest_user(user_id):
+        raw_session_id, guest_session, session_key = ensure_guest_chat(user_id, raw_session_id)
+        req.session_id = raw_session_id
+    else:
+        session_key = f"{user_id}:{raw_session_id}" if raw_session_id else user_id
+        guest_session = None
 
     default_session = {
         "in_flow": False,
@@ -604,9 +792,33 @@ async def init_or_get_session(req: ChatRequest, user_id: str):
         "pdf_processed": False,
     }
 
-    session = user_sessions.get(session_key, {})
+    session = guest_session if guest_session is not None else user_sessions.get(session_key, {})
     for k, v in default_session.items():
         session.setdefault(k, v)
+
+    if not is_guest_user(user_id) and not session.get("session_id") and supabase:
+        new_chat_id = str(uuid4())
+        now = datetime.utcnow().isoformat()
+        try:
+            insert_row(
+                "chat_sessions",
+                {
+                    "id": new_chat_id,
+                    "user_id": user_id,
+                    "title": "New Chat",
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            session["session_id"] = new_chat_id
+            req.session_id = new_chat_id
+        except Exception:
+            logger.exception("Failed to create chat session for user %s", user_id)
+
+    if is_guest_user(user_id):
+        session["guest"] = True
+        session["guest_user_id"] = user_id
+        session["session_id"] = raw_session_id
 
     user_sessions[session_key] = session
     return session, session_key, session.get("session_id")
@@ -880,51 +1092,16 @@ async def handle_pdf_upload_and_extraction(
         logger.info("[PDF-MERGE] Customer name extracted: %s", extracted_customer_name)
 
     try:
-        srs_project = SRSIntelligencePipeline().run_bytes(file_bytes, original_file_name)
+        srs_project = _run_srs_pipeline_with_text_fallback(file_bytes, original_file_name, extracted_text)
         if srs_project.requirements:
             if _customer_name_from_session(session):
                 srs_project.assumptions.append(f"Customer: {_customer_name_from_session(session)}")
 
-            missing_questions = _build_srs_missing_questions(srs_project)
-            if missing_questions:
-                session["srs_json"] = _srs_project_to_dict(srs_project)
-                session["srs_missing_questions"] = missing_questions
-                session["srs_missing_index"] = 0
-                session["srs_original_file_name"] = original_file_name
-                session["in_flow"] = True
-                session["node_id"] = "__srs_missing_field"
-                session["pdf_mode"] = False
-                session["pdf_processed"] = True
-                user_sessions[session_key] = session
-
-                first_question = missing_questions[0]["question"]
-                reply_text = (
-                    "I extracted the SRS structure, but a few required fields were not available in the uploaded document.\n\n"
-                    f"Requirements extracted: {len(srs_project.requirements)}\n"
-                    f"Missing fields: {len(missing_questions)}\n\n"
-                    f"{first_question}"
-                )
-                await persist_chat_pair(
-                    user_id,
-                    session_key,
-                    session,
-                    session_id,
-                    user_message_for_persist,
-                    reply_text,
-                )
-                return {
-                    "reply": reply_text,
-                    "in_flow": True,
-                    "node_id": "__srs_missing_field",
-                    "srs_missing": {
-                        "total": len(missing_questions),
-                        "current": 1,
-                        "question": first_question,
-                    },
-                }
+            srs_project = fill_missing_srs_fields(srs_project)
 
             generated_docx = SrsTemplateRenderer().render_to_bytes(srs_project)
             generated_name = f"{safe_filename(srs_project.project_name)}_SRS.docx"
+            local_docx = _save_srs_docx_to_output_dir(srs_project, generated_docx)
             generated_url = upload_file_to_supabase(
                 generated_docx,
                 f"SRS_{session_id}_{generated_name}",
@@ -936,6 +1113,7 @@ async def handle_pdf_upload_and_extraction(
 
             session["srs_json"] = _srs_project_to_dict(srs_project)
             session["srs_docx"] = generated_url
+            session["srs_docx_local_path"] = local_docx["path"]
             session["in_flow"] = False
             session["node_id"] = None
             session["pdf_mode"] = False
@@ -946,7 +1124,13 @@ async def handle_pdf_upload_and_extraction(
                 [
                     finding
                     for finding in srs_project.validation_findings
-                    if finding.code in {"MISSING_REQUIREMENT_FIELD", "MISSING_PROJECT_FIELD", "MISSING_ASIL"}
+                    if finding.code
+                    in {
+                        "MISSING_REQUIREMENT_FIELD",
+                        "UNRESOLVED_REQUIREMENT_FIELD",
+                        "MISSING_PROJECT_FIELD",
+                        "MISSING_ASIL",
+                    }
                 ]
             )
             reply_text = (
@@ -954,13 +1138,16 @@ async def handle_pdf_upload_and_extraction(
                 f"Project: {srs_project.project_name}\n"
                 f"Requirements extracted: {len(srs_project.requirements)}\n"
                 f"Pipeline confidence: {srs_project.confidence:.2f}\n"
-                f"Missing field warnings: {missing_count}\n\n"
+                f"Missing fields auto-filled with: {FALLBACK_TEXT}\n"
+                f"Remaining validation warnings: {missing_count}\n\n"
                 "The generated DOCX preserves the master template and duplicates the requirement table for each extracted requirement."
             )
             attachment = {
                 "type": "docx",
                 "name": generated_name,
                 "url": generated_url,
+                "local_path": local_docx["path"],
+                "download_url": local_docx["download_url"],
             }
             await persist_chat_pair(
                 user_id,
@@ -1236,25 +1423,6 @@ async def handle_flow_engine(
         return {"reply": reply, "in_flow": False}
 
     if current_id == "__srs_missing_field":
-        answer = message.strip()
-        current_question = _current_srs_missing_question(session)
-        if not current_question:
-            session["in_flow"] = False
-            session["node_id"] = None
-            user_sessions[session_key] = session
-            reply_text = "I could not find the pending SRS clarification. Please upload the document again."
-            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
-            return {"reply": reply_text, "in_flow": False}
-
-        if not answer:
-            reply_text = current_question["question"]
-            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
-            return {
-                "reply": reply_text,
-                "in_flow": True,
-                "node_id": "__srs_missing_field",
-            }
-
         srs_data = session.get("srs_json")
         if not isinstance(srs_data, dict):
             session["in_flow"] = False
@@ -1265,31 +1433,12 @@ async def handle_flow_engine(
             return {"reply": reply_text, "in_flow": False}
 
         srs_project = _srs_project_from_dict(srs_data)
-        srs_project = _apply_srs_missing_answer(srs_project, current_question, answer)
-        session["srs_json"] = _srs_project_to_dict(srs_project)
-        session["srs_missing_index"] = int(session.get("srs_missing_index") or 0) + 1
-
-        next_question = _current_srs_missing_question(session)
-        if next_question:
-            questions = session.get("srs_missing_questions") or []
-            current_num = int(session.get("srs_missing_index") or 0) + 1
-            reply_text = f"Captured.\n\n{next_question['question']}"
-            user_sessions[session_key] = session
-            await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
-            return {
-                "reply": reply_text,
-                "in_flow": True,
-                "node_id": "__srs_missing_field",
-                "srs_missing": {
-                    "total": len(questions),
-                    "current": current_num,
-                    "question": next_question["question"],
-                },
-            }
+        srs_project = fill_missing_srs_fields(srs_project)
 
         try:
             generated_docx = SrsTemplateRenderer().render_to_bytes(srs_project)
             generated_name = f"{safe_filename(srs_project.project_name)}_SRS.docx"
+            local_docx = _save_srs_docx_to_output_dir(srs_project, generated_docx)
             generated_url = upload_file_to_supabase(
                 generated_docx,
                 f"SRS_{session_id}_{generated_name}",
@@ -1298,21 +1447,24 @@ async def handle_flow_engine(
             json_path = f"srs_generator/extracted_json/{safe_filename(srs_project.project_name)}_{session_id}.json"
             write_json(json_path, _srs_project_to_dict(srs_project))
         except Exception:
-            logger.exception("Failed to finalize clarified SRS document.")
-            reply_text = "I captured the missing details, but could not generate the final SRS document."
+            logger.exception("Failed to finalize SRS document with auto-filled missing fields.")
+            reply_text = "I filled the missing SRS fields with the temporary value, but could not generate the final SRS document."
             await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
             return {
                 "reply": reply_text,
-                "in_flow": True,
-                "node_id": "__srs_missing_field",
+                "in_flow": False,
             }
 
         attachment = {
             "type": "docx",
             "name": generated_name,
             "url": generated_url,
+            "local_path": local_docx["path"],
+            "download_url": local_docx["download_url"],
         }
+        session["srs_json"] = _srs_project_to_dict(srs_project)
         session["srs_docx"] = generated_url
+        session["srs_docx_local_path"] = local_docx["path"]
         session["srs_missing_questions"] = []
         session["srs_missing_index"] = 0
         session["in_flow"] = False
@@ -1320,9 +1472,10 @@ async def handle_flow_engine(
         user_sessions[session_key] = session
 
         reply_text = (
-            "Captured. The SRS document is now complete and generated.\n\n"
+            "I filled the remaining SRS fields with the temporary value and generated the document.\n\n"
             f"Project: {srs_project.project_name}\n"
-            f"Requirements: {len(srs_project.requirements)}"
+            f"Requirements: {len(srs_project.requirements)}\n"
+            f"Temporary value: {FALLBACK_TEXT}"
         )
         await persist_chat_pair(
             user_id,
@@ -1502,7 +1655,8 @@ async def handle_flow_engine(
         }
 
     if current_id == "await_new_answer":
-        new_value = message.strip()
+        answer_attachment = _pending_answer_attachment(session)
+        new_value = _answer_value_with_attachment(message, answer_attachment)
         if not new_value:
             reply_text = "New value cannot be empty. Please enter a valid value."
             await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
@@ -1519,16 +1673,24 @@ async def handle_flow_engine(
         if target.get("kind") == "requirement":
             qid = target.get("qid")
             product = target.get("product")
+            entry = _attach_to_entry(
+                {"value": new_value, "confidence": 1.0, "source": "user"},
+                answer_attachment,
+            )
             if product and isinstance(session.get("product_contexts"), dict):
                 product_ctx = session["product_contexts"].setdefault(product, {})
-                product_ctx[qid] = {"value": new_value, "confidence": 1.0, "source": "user"}
+                product_ctx[qid] = entry
                 if session.get("active_product") == product:
                     session["context"] = product_ctx
             else:
                 ctx = session.setdefault("context", {})
-                ctx[qid] = {"value": new_value, "confidence": 1.0, "source": "user"}
+                ctx[qid] = entry
         elif target.get("kind") == "query":
-            if not _set_query_by_index(session, int(target.get("query_index", -1)), new_value):
+            answer_attachment = _pending_answer_attachment(session)
+            query_index = int(target.get("query_index", -1))
+            if _set_query_by_index(session, query_index, new_value):
+                _append_query_attachment_by_index(session, query_index, answer_attachment)
+            else:
                 ctx = session.setdefault("context", {})
                 q_entry = ctx.setdefault(
                     "query_input",
@@ -1537,6 +1699,7 @@ async def handle_flow_engine(
                 if not isinstance(q_entry.get("value"), list):
                     q_entry["value"] = []
                 q_entry["value"].append(new_value)
+                _append_attachment_to_entry(q_entry, answer_attachment)
 
         summary_text, index_map = _build_numbered_summary(session)
         session["summary_index_map"] = index_map
@@ -1582,11 +1745,14 @@ async def handle_flow_engine(
                 "node_id": "mistake_prompt",
             }
 
-        session["context"]["start"] = {
-            "value": selected["label"],
-            "confidence": 1.0,
-            "source": "user",
-        }
+        session["context"]["start"] = _attach_to_entry(
+            {
+                "value": selected["label"],
+                "confidence": 1.0,
+                "source": "user",
+            },
+            _pending_answer_attachment(session),
+        )
 
         selected_label = selected["label"].strip().lower()
         if selected_label.startswith("yes"):
@@ -1662,6 +1828,7 @@ async def handle_flow_engine(
     # requirement nodes: ask by remaining IDs in order (service-aware)
     if current_id in ALLOWED_QUESTION_IDS:
         current_context = _active_product_context(session)
+        answer_attachment = _pending_answer_attachment(session)
 
         if node.get("options"):
             selected = flow_manager.find_best_option(node["options"], message)
@@ -1680,13 +1847,16 @@ async def handle_flow_engine(
                 }
             answer_value = selected["label"]
         else:
-            answer_value = message.strip()
+            answer_value = _answer_value_with_attachment(message, answer_attachment)
 
-        current_context[current_id] = {
-            "value": answer_value,
-            "confidence": 1.0,
-            "source": "user",
-        }
+        current_context[current_id] = _attach_to_entry(
+            {
+                "value": answer_value,
+                "confidence": 1.0,
+                "source": "user",
+            },
+            answer_attachment,
+        )
         session["context"] = current_context
         if isinstance(session.get("product_contexts"), dict) and session.get("active_product") in session["product_contexts"]:
             session["product_contexts"][session["active_product"]] = current_context
@@ -1711,23 +1881,32 @@ async def handle_flow_engine(
     # non-requirement input nodes (query flow etc.)
     if node.get("expect_user_input") or node.get("type") == "input":
         node_id = node["id"]
+        answer_attachment = _pending_answer_attachment(session)
+        answer_value = _answer_value_with_attachment(message, answer_attachment)
 
         if node_id == "query_input":
             existing = session["context"].get(node_id)
             if not existing:
-                session["context"][node_id] = {
-                    "value": [message.strip()],
+                session["context"][node_id] = _attach_to_entry(
+                    {
+                        "value": [answer_value],
+                        "confidence": 1.0,
+                        "source": "user",
+                    },
+                    answer_attachment,
+                )
+            else:
+                existing["value"].append(answer_value)
+                _append_attachment_to_entry(existing, answer_attachment)
+        else:
+            session["context"][node_id] = _attach_to_entry(
+                {
+                    "value": answer_value,
                     "confidence": 1.0,
                     "source": "user",
-                }
-            else:
-                existing["value"].append(message.strip())
-        else:
-            session["context"][node_id] = {
-                "value": message.strip(),
-                "confidence": 1.0,
-                "source": "user",
-            }
+                },
+                answer_attachment,
+            )
 
         next_id = node.get("next") or "final_step"
 
@@ -1773,11 +1952,14 @@ async def handle_flow_engine(
                 "node_id": "mistake_prompt",
             }
 
-        session["context"][node["id"]] = {
-            "value": selected["label"],
-            "confidence": 1.0,
-            "source": "user",
-        }
+        session["context"][node["id"]] = _attach_to_entry(
+            {
+                "value": selected["label"],
+                "confidence": 1.0,
+                "source": "user",
+            },
+            _pending_answer_attachment(session),
+        )
         next_id = selected.get("next")
     else:
         next_id = node.get("next")
@@ -1873,5 +2055,3 @@ async def handle_flow_engine(
         "node_id": next_id,
         "context": session["context"],
     }
-
-

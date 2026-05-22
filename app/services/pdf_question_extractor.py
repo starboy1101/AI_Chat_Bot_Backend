@@ -257,7 +257,7 @@ async def extract_answers_from_pdf(
 
     chunks = split_text_safely(pdf_text, max_len=PDF_EXTRACT_CHUNK_LEN)
     total_chunks = len(chunks)
-    logger.info("[PDF-EXTRACT] Starting extraction: %d chunks", total_chunks)
+    logger.info("[DOC-EXTRACT] Starting fallback LLM extraction: %d chunks", total_chunks)
     question_batches = [
         (batch_qids, set(batch_qids), _build_question_block(questions, batch_qids))
         for batch_qids in _iter_question_batches()
@@ -266,11 +266,11 @@ async def extract_answers_from_pdf(
     for idx, chunk in enumerate(chunks, start=1):
         if not isinstance(chunk, str) or not chunk.strip():
             continue
-        logger.info("[PDF-EXTRACT] Extracting chunk %d/%d", idx, total_chunks)
+        logger.info("[DOC-EXTRACT] Extracting chunk %d/%d", idx, total_chunks)
 
         for batch_idx, (batch_qids, batch_qid_set, question_block) in enumerate(question_batches, start=1):
             logger.debug(
-                "[PDF-EXTRACT] Chunk %d/%d batch %d qids=%s",
+                "[DOC-EXTRACT] Chunk %d/%d batch %d qids=%s",
                 idx,
                 total_chunks,
                 batch_idx,
@@ -329,7 +329,7 @@ Output JSON only.
 
             if not data:
                 logger.warning(
-                    "[PDF-EXTRACT] Chunk %d/%d batch %d returned non-JSON/truncated output after %d attempts. raw=%s",
+                    "[DOC-EXTRACT] Chunk %d/%d batch %d returned non-JSON/truncated output after %d attempts. raw=%s",
                     idx,
                     total_chunks,
                     batch_idx,
@@ -362,7 +362,7 @@ Output JSON only.
                     explicit_value_in_evidence = bool(evidence) and bool(value_text) and value_text in evidence.lower()
                     if evidence and not evidence_ok:
                         logger.debug(
-                            "[PDF-EXTRACT] Dropping weak evidence product=%s qid=%s value=%r evidence=%s",
+                            "[DOC-EXTRACT] Dropping weak evidence product=%s qid=%s value=%r evidence=%s",
                             product,
                             qid,
                             value,
@@ -379,7 +379,7 @@ Output JSON only.
                         )
                     ):
                         logger.debug(
-                            "[PDF-EXTRACT] Dropping assumed value product=%s qid=%s value=%r due to missing/invalid explicit evidence",
+                            "[DOC-EXTRACT] Dropping assumed value product=%s qid=%s value=%r due to missing/invalid explicit evidence",
                             product,
                             qid,
                             value,
@@ -397,7 +397,7 @@ Output JSON only.
                     product_results[qid] = _merge_answer(product_results.get(qid), incoming)
 
                     logger.debug(
-                        "[PDF-EXTRACT] Extracted product=%s qid=%s value=%r confidence=%.3f evidence=%s",
+                        "[DOC-EXTRACT] Extracted product=%s qid=%s value=%r confidence=%.3f evidence=%s",
                         product,
                         qid,
                         incoming["value"],
@@ -427,12 +427,12 @@ Output JSON only.
         for qid, entry in product_answers.items():
             if entry.get("value") not in (None, "", []):
                 logger.debug(
-                    "[PDF-EXTRACT] Final product=%s qid=%s value=%r confidence=%.3f",
+                    "[DOC-EXTRACT] Final product=%s qid=%s value=%r confidence=%.3f",
                     product,
                     qid,
                     entry.get("value"),
                     _to_float(entry.get("confidence", 0.0)),
                 )
 
-    logger.info("[PDF-EXTRACT] Extraction completed")
+    logger.info("[DOC-EXTRACT] Fallback LLM extraction completed")
     return final

@@ -79,8 +79,22 @@ def _format_value(entry: Any) -> str:
 
     value = entry["value"]
     if isinstance(value, list):
-        return ", ".join(str(v) for v in value)
-    return str(value)
+        text = ", ".join(str(v) for v in value)
+    else:
+        text = str(value)
+
+    attachments = entry.get("attachments")
+    if not isinstance(attachments, list):
+        single = entry.get("attachment")
+        attachments = [single] if isinstance(single, dict) else []
+    attachment_text = ", ".join(
+        f"{item.get('name') or 'Attachment'}: {item.get('url')}"
+        for item in attachments
+        if isinstance(item, dict) and item.get("url")
+    )
+    if attachment_text:
+        return f"{text}\nAttachment: {attachment_text}"
+    return text
 
 
 def _read_text_value(product_context: Dict[str, Any], qid: str) -> str:

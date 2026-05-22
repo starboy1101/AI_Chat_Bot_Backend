@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 import re
+from io import BytesIO
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import uuid4
 
+import requests
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.table import Table
+from docx.shared import Inches
+from docx.table import Table, _Row
 from docx.text.paragraph import Paragraph
 
 from srs_generator.models import SRSProject, StructuredRequirement
-from srs_generator.section_instructions import PROJECT_FIELD_LABELS, PROJECT_SECTION_INSTRUCTIONS
 from srs_generator.utils import safe_filename
-from srs_generator.validator import SRSValidator
+from srs_generator.validator import FALLBACK_TEXT, SRSValidator
 
 
 class SrsTemplateRenderer:
@@ -48,6 +50,7 @@ class SrsTemplateRenderer:
         self._replace_section_placeholder(document, {"Operating environment"}, self._project_section_value(project, "operating_environment"))
         self._replace_section_placeholder(document, {"Overall Acceptance Criteria"}, self._project_section_value(project, "acceptance_criteria"))
 
+        self._render_document_detail_tables(document, project)
         self._render_functional_requirements(document, project)
         self._render_requirement_management_table(document, project.requirements)
         self._neutralize_unused_requirement_placeholders(document)
@@ -70,9 +73,9 @@ class SrsTemplateRenderer:
             "<Project Name>": project.project_name,
             "{{project_name}}": project.project_name,
             "{{version}}": project.version,
-            "{{system_overview}}": project.system_overview,
-            "{{scope}}": project.scope,
-            "{{acceptance_criteria}}": project.acceptance_criteria,
+            "{{system_overview}}": self._output_value(project.system_overview),
+            "{{scope}}": self._output_value(project.scope),
+            "{{acceptance_criteria}}": self._output_value(project.acceptance_criteria),
         }
 
         previous_text = ""
@@ -98,13 +101,9 @@ class SrsTemplateRenderer:
         text = str(value or "").strip()
         if field == "intended_audience" and text == SRSValidator.DEFAULT_INTENDED_AUDIENCE:
             text = ""
-        if text and text != "Not specified." and not self._has_angle_instruction(text):
+        if not self._is_missing_output_value(text) and not self._has_angle_instruction(text):
             return text
-        label = PROJECT_FIELD_LABELS.get(field, field.replace("_", " ").title())
-        instruction = PROJECT_SECTION_INSTRUCTIONS.get(field, "")
-        if instruction:
-            return f"Pending user input: {label}.\n\nExpected information:\n{instruction}"
-        return f"Pending user input: {label}."
+        return FALLBACK_TEXT
 
     def _render_functional_requirements(self, document: Document, project: SRSProject) -> None:
         requirements = project.requirements or [
@@ -151,9 +150,14 @@ class SrsTemplateRenderer:
                 for label, value in self._requirement_rows(req):
                     cells = table.add_row().cells
                     cells[0].text = label
-                    cells[1].text = value
+                    attachments = self._attachments_for_label(self._normalize_label(label), req)
+                    if attachments:
+                        self._set_cell_text_with_attachments(cells[1], self._output_value(value), attachments)
+                    else:
+                        cells[1].text = self._output_value(value)
 
     def _fill_requirement_table(self, table: Table, req: StructuredRequirement) -> None:
+        self._ensure_requirement_identity_rows(table)
         values = {self._normalize_label(label): value for label, value in self._requirement_rows(req)}
         for row in table.rows:
             if len(row.cells) < 2:
@@ -161,7 +165,12 @@ class SrsTemplateRenderer:
             label_key = self._normalize_label(row.cells[0].text)
             value = self._value_for_label(label_key, values, req)
             if value is not None:
-                self._set_cell_text(row.cells[1], value)
+                value = self._output_value(value)
+                attachments = self._attachments_for_label(label_key, req)
+                if attachments:
+                    self._set_cell_text_with_attachments(row.cells[1], value, attachments)
+                else:
+                    self._set_cell_text(row.cells[1], value)
 
     def _requirement_rows(self, req: StructuredRequirement) -> List[Tuple[str, str]]:
         return [
@@ -170,17 +179,28 @@ class SrsTemplateRenderer:
             ("Milestone", req.metadata.milestone or ""),
             ("Purpose1", req.purpose),
             ("Derived Requirement", req.derived_requirement),
-            ("Requirement Priority", req.metadata.priority or "Medium"),
+            ("Requirement Priority", req.metadata.priority or ""),
             ("Access Restrictions", req.access_restrictions),
             ("Input(s)", req.inputs),
             ("Output(s)", req.outputs),
             ("Process", req.process),
             ("Mandatory Fields", req.mandatory_fields),
+            ("Pre-Loaded Values", req.pre_loaded_values),
+            ("Default Values", req.default_values),
+            ("Valid range of Values", req.valid_range_of_values),
+            ("Data Latency Period", req.data_latency_period),
+            ("Data Retention Period", req.data_retention_period),
+            ("Data Rate/ Daily Number of transaction", req.data_rate),
+            ("External Events", req.external_events),
+            ("Temporal Events", req.temporal_events),
             ("Validation Rules/ Verification criteria2", req.validation),
             ("Constraints", req.constraints),
+            ("Effects on other systems/sub system", req.effects_on_other_systems),
             ("Assumptions", req.assumptions),
             ("Failure Scenario", req.failure_scenario),
             ("Action if Failure", req.action_on_failure),
+            ("Testability with respect to test environment (Yes/No) Note: Mention in which phase of testing, this requirement will be tested", req.testability),
+            ("Feasible within project constraints (Yes/No) Note: Add the impact of requirement on operating environment defined in section 4.2", self._bool_text(req.feasible)),
             ("Acceptance Criteria", req.acceptance_criteria),
             ("Requirement Acceptance Criteria", req.acceptance_criteria),
             ("Requirement Status", req.status),
@@ -204,6 +224,26 @@ class SrsTemplateRenderer:
             return req.process
         if "validation" in label_key or "verification" in label_key:
             return req.validation
+        if "pre loaded" in label_key or "preloaded" in label_key:
+            return req.pre_loaded_values
+        if "default value" in label_key:
+            return req.default_values
+        if "valid range" in label_key:
+            return req.valid_range_of_values
+        if "data latency" in label_key:
+            return req.data_latency_period
+        if "data retention" in label_key:
+            return req.data_retention_period
+        if "data rate" in label_key:
+            return req.data_rate
+        if "external event" in label_key:
+            return req.external_events
+        if "temporal event" in label_key:
+            return req.temporal_events
+        if "effect" in label_key and "system" in label_key:
+            return req.effects_on_other_systems
+        if "testability" in label_key:
+            return req.testability
         if "acceptance" in label_key:
             return req.acceptance_criteria
         if "critical" in label_key:
@@ -213,6 +253,117 @@ class SrsTemplateRenderer:
         if "comment" in label_key or "rationale" in label_key:
             return req.comments
         return None
+
+    def _field_for_label(self, label_key: str) -> Optional[str]:
+        if "purpose" in label_key or "description" in label_key:
+            return "purpose"
+        if "derived" in label_key:
+            return "derived_requirement"
+        if "access" in label_key:
+            return "access_restrictions"
+        if "input" in label_key:
+            return "inputs"
+        if "output" in label_key:
+            return "outputs"
+        if "process" in label_key:
+            return "process"
+        if "pre loaded" in label_key or "preloaded" in label_key:
+            return "pre_loaded_values"
+        if "default value" in label_key:
+            return "default_values"
+        if "valid range" in label_key:
+            return "valid_range_of_values"
+        if "data latency" in label_key:
+            return "data_latency_period"
+        if "data retention" in label_key:
+            return "data_retention_period"
+        if "data rate" in label_key:
+            return "data_rate"
+        if "external event" in label_key:
+            return "external_events"
+        if "temporal event" in label_key:
+            return "temporal_events"
+        if "mandatory" in label_key:
+            return "mandatory_fields"
+        if "validation" in label_key or "verification" in label_key:
+            return "validation"
+        if "constraint" in label_key:
+            return "constraints"
+        if "effect" in label_key and "system" in label_key:
+            return "effects_on_other_systems"
+        if "assumption" in label_key:
+            return "assumptions"
+        if "failure scenario" in label_key:
+            return "failure_scenario"
+        if "action if failure" in label_key:
+            return "action_on_failure"
+        if "acceptance" in label_key:
+            return "acceptance_criteria"
+        if "testability" in label_key:
+            return "testability"
+        if "status" in label_key:
+            return "status"
+        if "critical" in label_key:
+            return "critical"
+        if "feasible" in label_key:
+            return "feasible"
+        if "comment" in label_key or "rationale" in label_key:
+            return "comments"
+        if "customer req" in label_key:
+            return "customer_req_id"
+        if "milestone" in label_key:
+            return "milestone"
+        if "priority" in label_key:
+            return "priority"
+        return None
+
+    def _attachments_for_label(self, label_key: str, req: StructuredRequirement) -> List[Dict[str, Any]]:
+        attachments = [item for item in (req.attachments or []) if isinstance(item, dict)]
+        if not attachments:
+            return []
+
+        field = self._field_for_label(label_key)
+        if field:
+            matched = [item for item in attachments if item.get("field") == field]
+            if matched:
+                return matched
+
+        if "comment" in label_key or "rationale" in label_key:
+            known_fields = {
+                "purpose",
+                "derived_requirement",
+                "access_restrictions",
+                "inputs",
+                "outputs",
+                "process",
+                "mandatory_fields",
+                "pre_loaded_values",
+                "default_values",
+                "valid_range_of_values",
+                "data_latency_period",
+                "data_retention_period",
+                "data_rate",
+                "external_events",
+                "temporal_events",
+                "validation",
+                "constraints",
+                "effects_on_other_systems",
+                "assumptions",
+                "failure_scenario",
+                "action_on_failure",
+                "acceptance_criteria",
+                "testability",
+                "status",
+                "critical",
+                "feasible",
+                "comments",
+                "customer_req_id",
+                "milestone",
+                "priority",
+            }
+            return [item for item in attachments if item.get("field") not in known_fields]
+
+        return []
 
     def _render_requirement_management_table(self, document: Document, requirements: List[StructuredRequirement]) -> None:
         table = self._find_requirement_management_table(document)
@@ -226,12 +377,68 @@ class SrsTemplateRenderer:
                 req.req_id,
                 req.logical_block,
                 req.requirement_type,
-                req.metadata.priority or "Medium",
+                self._output_value(req.metadata.priority),
                 req.status,
                 f"{req.metadata.confidence:.2f}",
             ]
             for idx, value in enumerate(values[: len(cells)]):
-                cells[idx].text = value
+                cells[idx].text = self._output_value(value)
+
+    def _render_document_detail_tables(self, document: Document, project: SRSProject) -> None:
+        if project.revision_history:
+            approval_table = self._find_revision_approval_table(document)
+            if approval_table is not None:
+                self._clear_table_after(approval_table, 2)
+                for entry in project.revision_history:
+                    cells = approval_table.add_row().cells
+                    values = [
+                        entry.version,
+                        entry.author,
+                        entry.author_date,
+                        entry.reviewer,
+                        entry.reviewer_date,
+                        entry.approver,
+                        entry.approver_date,
+                    ]
+                    for index, value in enumerate(values[: len(cells)]):
+                        cells[index].text = self._output_value(value)
+
+            change_table = self._find_revision_change_table(document)
+            if change_table is not None:
+                self._clear_table_after(change_table, 1)
+                for entry in project.revision_history:
+                    if not entry.change_description:
+                        continue
+                    cells = change_table.add_row().cells
+                    if len(cells) >= 1:
+                        cells[0].text = self._output_value(entry.version)
+                    if len(cells) >= 2:
+                        cells[1].text = self._output_value(entry.change_description)
+
+        if project.definitions:
+            definitions_table = self._find_definitions_table(document)
+            if definitions_table is not None:
+                self._clear_table_after(definitions_table, 1)
+                for entry in project.definitions:
+                    cells = definitions_table.add_row().cells
+                    if len(cells) >= 1:
+                        cells[0].text = self._output_value(entry.term)
+                    if len(cells) >= 2:
+                        cells[1].text = self._output_value(entry.description)
+
+        if project.references:
+            references_table = self._find_references_table(document)
+            if references_table is not None:
+                self._clear_table_after(references_table, 1)
+                for entry in project.references:
+                    cells = references_table.add_row().cells
+                    values = [entry.number, entry.document, entry.version, entry.remarks]
+                    for index, value in enumerate(values[: len(cells)]):
+                        cells[index].text = self._output_value(value)
+
+    def _clear_table_after(self, table: Table, keep_rows: int) -> None:
+        while len(table.rows) > keep_rows:
+            table._tbl.remove(table.rows[-1]._tr)
 
     def _neutralize_unused_requirement_placeholders(self, document: Document) -> None:
         placeholder_ids = {"rq0n", "requirement description", "<cs-req-001>", ""}
@@ -251,9 +458,9 @@ class SrsTemplateRenderer:
                     continue
                 label = self._normalize_label(row.cells[0].text)
                 if label in {"req id", "requirement id"}:
-                    self._set_cell_text(row.cells[1], "N/A")
+                    self._set_cell_text(row.cells[1], FALLBACK_TEXT)
                 elif label and label != "term":
-                    self._set_cell_text(row.cells[1], "Not applicable.")
+                    self._set_cell_text(row.cells[1], FALLBACK_TEXT)
 
     def _is_placeholder_value(self, value: str) -> bool:
         text = self._normalize_label(value)
@@ -267,8 +474,7 @@ class SrsTemplateRenderer:
         return any(phrase in text for phrase in placeholder_phrases)
 
     def _replace_section_placeholder(self, document: Document, heading_names: set[str], value: str) -> None:
-        if not value or value == "Not specified.":
-            return
+        value = self._output_value(value)
         normalized_headings = {self._clean_heading_name(name) for name in heading_names}
         capture_next = False
         start_level = None
@@ -278,7 +484,7 @@ class SrsTemplateRenderer:
             paragraph_level = self._paragraph_heading_level(paragraph)
             if capture_next and paragraph_level and start_level and paragraph_level <= start_level:
                 return
-            if capture_next and ("<" in text or not text):
+            if capture_next and (not text or self._is_template_instruction_paragraph(paragraph)):
                 self._set_paragraph_text(paragraph, value if not replaced else "")
                 replaced = True
                 continue
@@ -293,17 +499,73 @@ class SrsTemplateRenderer:
                 return
 
     def _cleanup_remaining_angle_instructions(self, document: Document) -> None:
+        section_has_content = False
         for paragraph in document.paragraphs:
-            if self._has_angle_instruction(paragraph.text):
-                self._set_paragraph_text(paragraph, "")
+            if self._paragraph_heading_level(paragraph):
+                section_has_content = False
+                continue
+            if self._is_template_instruction_paragraph(paragraph):
+                if section_has_content:
+                    self._set_paragraph_text(paragraph, "")
+                else:
+                    self._set_paragraph_text(paragraph, FALLBACK_TEXT)
+                    section_has_content = True
+                continue
+            if paragraph.text.strip() and not self._is_toc_or_caption(paragraph):
+                section_has_content = True
         for table in document.tables:
+            self._remove_placeholder_rows(table)
+            requirement_like = self._is_requirement_like_table(table)
             for row in table.rows:
-                for cell in row.cells:
-                    if self._has_angle_instruction(cell.text):
-                        self._set_cell_text(cell, "Not applicable.")
+                for cell_index, cell in enumerate(row.cells):
+                    if self._is_label_cell(row, cell_index):
+                        cleaned = self._clean_label_text(cell.text)
+                        if cleaned != cell.text:
+                            self._set_cell_text(cell, cleaned)
+                        continue
+                    if self._is_template_instruction_text(cell.text):
+                        self._set_cell_text(cell, FALLBACK_TEXT)
+                    elif requirement_like and self._is_missing_output_value(cell.text):
+                        self._set_cell_text(cell, FALLBACK_TEXT)
 
     def _has_angle_instruction(self, text: str) -> bool:
         return "<" in (text or "") and ">" in (text or "")
+
+    def _output_value(self, value: Any) -> str:
+        text = str(value or "").strip()
+        if self._is_missing_output_value(text) or self._has_angle_instruction(text):
+            return FALLBACK_TEXT
+        return text
+
+    def _is_missing_output_value(self, value: Any) -> bool:
+        text = str(value or "").strip()
+        if not text:
+            return True
+        normalized = self._normalize_label(text)
+        missing_values = {
+            "n a",
+            "na",
+            "none",
+            "not applicable",
+            "not found",
+            "not specified",
+            "not specified.",
+            "tbd",
+            "todo",
+            "to be confirmed",
+            "to be determined",
+            FALLBACK_TEXT.lower(),
+        }
+        if normalized in {self._normalize_label(item) for item in missing_values}:
+            return True
+        if re.fullmatch(r"\[[^\]]{1,80}\]", text):
+            return True
+        return False
+
+    def _is_toc_or_caption(self, paragraph: Paragraph) -> bool:
+        style_name = paragraph.style.name if paragraph.style is not None else ""
+        lowered = style_name.lower()
+        return lowered.startswith("toc") or "caption" in lowered or "table of figures" in lowered
 
     def _find_functional_requirement_table(self, document: Document) -> Optional[Table]:
         for table in document.tables:
@@ -321,6 +583,42 @@ class SrsTemplateRenderer:
                 continue
             headers = [self._normalize_label(cell.text) for cell in table.rows[0].cells]
             if "req id" in headers[0] and any("priority" in header for header in headers):
+                return table
+        return None
+
+    def _find_revision_approval_table(self, document: Document) -> Optional[Table]:
+        for table in document.tables:
+            if not table.rows or len(table.rows[0].cells) < 4:
+                continue
+            headers = [self._normalize_label(cell.text) for cell in table.rows[0].cells]
+            if headers and "version" in headers[0] and any("author" in header for header in headers):
+                return table
+        return None
+
+    def _find_revision_change_table(self, document: Document) -> Optional[Table]:
+        for table in document.tables:
+            if not table.rows or len(table.rows[0].cells) < 2:
+                continue
+            headers = [self._normalize_label(cell.text) for cell in table.rows[0].cells]
+            if headers[0] == "version" and "description of change" in headers[1]:
+                return table
+        return None
+
+    def _find_definitions_table(self, document: Document) -> Optional[Table]:
+        for table in document.tables:
+            if not table.rows or len(table.rows[0].cells) < 2:
+                continue
+            headers = [self._normalize_label(cell.text) for cell in table.rows[0].cells]
+            if "definition" in headers[0] and "description" in headers[1]:
+                return table
+        return None
+
+    def _find_references_table(self, document: Document) -> Optional[Table]:
+        for table in document.tables:
+            if not table.rows or len(table.rows[0].cells) < 4:
+                continue
+            headers = [self._normalize_label(cell.text) for cell in table.rows[0].cells]
+            if headers[0] in {"no", "number"} and "document" in headers[1] and "version" in headers[2]:
                 return table
         return None
 
@@ -345,6 +643,33 @@ class SrsTemplateRenderer:
         element.addnext(paragraph)
         return paragraph
 
+    def _ensure_requirement_identity_rows(self, table: Table) -> None:
+        labels = [self._normalize_label(row.cells[0].text) for row in table.rows if len(row.cells) >= 2]
+        req_indexes = [
+            index
+            for index, row in enumerate(table.rows)
+            if len(row.cells) >= 2 and self._normalize_label(row.cells[0].text) in {"req id", "requirement id"}
+        ]
+        if not req_indexes:
+            return
+
+        insert_after = req_indexes[0]
+        if "customer req id" not in labels:
+            insert_after = self._insert_row_after(table, insert_after, "Customer Req ID")
+            labels.insert(insert_after, "customer req id")
+        if "milestone" not in labels:
+            self._insert_row_after(table, insert_after, "Milestone")
+
+    def _insert_row_after(self, table: Table, row_index: int, label: str) -> int:
+        source_row = table.rows[row_index]
+        new_tr = deepcopy(source_row._tr)
+        source_row._tr.addnext(new_tr)
+        new_row = _Row(new_tr, table)
+        self._set_cell_text(new_row.cells[0], label)
+        for cell in new_row.cells[1:]:
+            self._set_cell_text(cell, "")
+        return row_index + 1
+
     def _replace_paragraph_text(self, paragraph: Paragraph, needle: str, value: str) -> None:
         self._set_paragraph_text(paragraph, paragraph.text.replace(needle, value))
 
@@ -364,8 +689,50 @@ class SrsTemplateRenderer:
         else:
             cell.text = text
 
+    def _set_cell_text_with_attachments(self, cell, text: str, attachments: List[Dict[str, Any]]) -> None:
+        self._set_cell_text(cell, text)
+        for attachment in attachments:
+            name = str(attachment.get("name") or "Attachment").strip() or "Attachment"
+            url = str(attachment.get("url") or "").strip()
+            paragraph = cell.add_paragraph()
+            paragraph.add_run(f"Attachment: {name}")
+            if url:
+                paragraph.add_run(f" ({url})")
+
+            image_bytes = self._download_image_attachment(attachment)
+            if not image_bytes:
+                continue
+
+            image_paragraph = cell.add_paragraph()
+            try:
+                image_paragraph.add_run().add_picture(BytesIO(image_bytes), width=Inches(4.75))
+            except Exception:
+                fallback = cell.add_paragraph()
+                fallback.add_run("Image could not be embedded; use the attachment link above.")
+
+    def _download_image_attachment(self, attachment: Dict[str, Any]) -> Optional[bytes]:
+        attachment_type = str(attachment.get("type") or "").lower()
+        kind = str(attachment.get("kind") or "").lower()
+        if attachment_type != "image" and kind not in {"gif", "jpg", "jpeg", "png", "webp"}:
+            return None
+
+        url = str(attachment.get("url") or "").strip()
+        if not url:
+            return None
+
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.content
+        except Exception:
+            return None
+
     def _normalize_label(self, value: str) -> str:
-        return " ".join((value or "").replace("\n", " ").strip().lower().split())
+        text = (value or "").replace("\n", " ").strip().lower()
+        text = text.replace("/", " ")
+        text = re.sub(r"[<>]", "", text)
+        text = re.sub(r"[^a-z0-9() ]+", " ", text)
+        return " ".join(text.split())
 
     def _clean_heading_name(self, value: str) -> str:
         text = self._normalize_label(value)
@@ -381,4 +748,98 @@ class SrsTemplateRenderer:
             return "Yes"
         if value is False:
             return "No"
-        return "Not specified."
+        return FALLBACK_TEXT
+
+    def _is_label_cell(self, row, cell_index: int) -> bool:
+        return len(row.cells) >= 2 and cell_index == 0
+
+    def _is_requirement_like_table(self, table: Table) -> bool:
+        labels = [self._normalize_label(row.cells[0].text) for row in table.rows if len(row.cells) >= 2]
+        joined = " ".join(labels)
+        return (
+            "req id" in labels
+            or "requirement id" in labels
+            or ("purpose1" in labels and "validation rules verification criteria2" in joined)
+        )
+
+    def _remove_placeholder_rows(self, table: Table) -> None:
+        for row in list(table.rows):
+            if not row.cells:
+                continue
+            first_text = (row.cells[0].text or "").strip()
+            normalized_first = self._normalize_label(first_text)
+            if re.match(r"^<\s*field\d+\s*>", first_text, flags=re.I) or re.match(r"^field\d+\d*$", normalized_first):
+                table._tbl.remove(row._tr)
+                continue
+            if first_text.startswith("<") and normalized_first not in {"req id", "requirement id"}:
+                table._tbl.remove(row._tr)
+                continue
+            if self._is_template_instruction_text(first_text) and all(
+                not cell.text.strip() or self._is_template_instruction_text(cell.text) for cell in row.cells
+            ):
+                table._tbl.remove(row._tr)
+
+    def _clean_label_text(self, text: str) -> str:
+        if not text:
+            return text
+        cleaned = re.sub(r"<\s*([^<>]{1,40})\s*>", r"\1", text)
+        return re.sub(r"\s+", " ", cleaned).strip()
+
+    def _is_template_instruction_paragraph(self, paragraph: Paragraph) -> bool:
+        text = paragraph.text.strip()
+        if not text:
+            return False
+        style_name = paragraph.style.name if paragraph.style is not None else ""
+        return self._is_template_instruction_text(text) or (
+            style_name.lower() == "normal2" and self._looks_like_instruction_sentence(text)
+        )
+
+    def _is_template_instruction_text(self, text: str) -> bool:
+        stripped = (text or "").strip()
+        if not stripped:
+            return False
+        if re.fullmatch(r"\[[^\]]{1,80}\]", stripped):
+            return True
+        if ("<" in stripped or ">" in stripped) and (
+            stripped.startswith("<")
+            or stripped.endswith(">")
+            or self._looks_like_instruction_sentence(stripped)
+        ):
+            return True
+        return self._looks_like_instruction_sentence(stripped)
+
+    def _looks_like_instruction_sentence(self, text: str) -> bool:
+        lowered = self._normalize_label(text)
+        instruction_phrases = (
+            "note this section is mandatory",
+            "describe the",
+            "provide a description",
+            "provide details",
+            "provide description",
+            "define scope",
+            "software block diagram is a logical view",
+            "analyze if any",
+            "define draw operating environment",
+            "configuration parameters are",
+            "configuration parameters should include",
+            "add security concept architecture",
+            "list all the requirements",
+            "list down the",
+            "state the performance",
+            "specify any requirement",
+            "specify attributes",
+            "specify structure",
+            "specify transaction volume",
+            "specify the need",
+            "mention all the open source",
+            "mention the standards",
+            "list requirements with unique identifier",
+            "conduct fmea",
+            "add the opportunities",
+            "map the requirements",
+            "refer the table",
+            "applicable for automotive projects",
+            "for automotive projects",
+            "a use case is a methodology",
+        )
+        return any(phrase in lowered for phrase in instruction_phrases)

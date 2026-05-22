@@ -4,6 +4,8 @@ from typing import Optional, Dict, Any
 class LoginRequest(BaseModel):
     user_id: str
     password: str 
+    remember_me: bool = False
+    rememberMe: Optional[bool] = None
 
 class RegisterRequest(BaseModel):
     firstName: str
@@ -14,7 +16,10 @@ class RegisterRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     success: bool
+    user_id: Optional[str] = None
     token: Optional[str] = None
+    remember_me: bool = False
+    token_expires_in_seconds: Optional[int] = None
     message: Optional[str] = None
 
 class UpdateUserInfo(BaseModel):
@@ -28,7 +33,7 @@ class UpdateUserInfo(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    user_id: Optional[str] = "guest"
+    user_id: Optional[str] = None
     session_id: Optional[str] = None
 
     # PDF-first support

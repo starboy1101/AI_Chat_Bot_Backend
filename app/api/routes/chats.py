@@ -1,6 +1,5 @@
 import os
 import logging
-import base64
 import asyncio
 import json
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -12,24 +11,31 @@ from app.core.db import supabase, insert_row, delete_rows, update_row
 from app.models.schemas import ChatRequest, CreateChatRequest, UpdateUserInfo
 from app.services.llm_manager import generate_answer_stream_async
 from app.services.backend import matches_services_trigger
-from app.utils.greetings import is_greeting, GREETING_REPLY
-from app.utils.common import normalize_text
-from app.services.faiss_manager import add as faiss_add
+from app.utils.greetings import is_greeting
 from app.services.chat_persistence import (
     persist_chat_pair,
-    save_user_message_immediately,
     update_session_title_if_needed,
 )
 from app.services.chat_handlers import (
     handle_greeting,
-    handle_guest_chat,
     handle_flow_engine,
     handle_pdf_upload_and_extraction,
     handle_service_trigger,
     init_or_get_session,
     handle_normal_qa,
+    prepare_user_attachment,
 )
-from app.state.chat_state import user_sessions
+from app.state.chat_state import (
+    clear_guest_chat,
+    delete_guest_chat,
+    delete_guest_user,
+    ensure_guest_chat,
+    get_guest_chats,
+    get_guest_messages,
+    is_guest_user,
+    search_guest_chats,
+    user_sessions,
+)
 
 router = APIRouter(prefix="/chats")
 logger = logging.getLogger("swarai.chats")
@@ -53,7 +59,8 @@ _DOC_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 _TEXT_MIME_TYPES = {"text/plain", "text"}
-_SUPPORTED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt"}
+_IMAGE_MIME_TYPES = {"image/gif", "image/jpeg", "image/jpg", "image/png", "image/webp"}
+_SUPPORTED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
 def reset_model_context(session_id: str):
     model_context[session_id] = {"tokens_used": 0}
@@ -84,6 +91,14 @@ def _infer_attachment_kind(attachment: Any) -> Optional[str]:
         return "doc"
     if raw_name.endswith(".txt") or raw_type in {"txt", "plain", "text"} or raw_type in _TEXT_MIME_TYPES:
         return "txt"
+    if raw_name.endswith((".jpg", ".jpeg")) or raw_type in {"jpg", "jpeg", "image/jpg", "image/jpeg"}:
+        return "jpg"
+    if raw_name.endswith(".png") or raw_type in {"png", "image/png"}:
+        return "png"
+    if raw_name.endswith(".gif") or raw_type in {"gif", "image/gif"}:
+        return "gif"
+    if raw_name.endswith(".webp") or raw_type in {"webp", "image/webp"}:
+        return "webp"
 
     # Some clients send a generic type while preserving extension in `name`.
     for ext in _SUPPORTED_UPLOAD_EXTENSIONS:
@@ -91,31 +106,42 @@ def _infer_attachment_kind(attachment: Any) -> Optional[str]:
             return ext.lstrip(".")
     return None
 
-async def save_user_message_immediately(session_id, user_id, message):
-    if not supabase or not session_id:
-        return
 
-    now = datetime.utcnow().isoformat()
+def _is_bare_guest_user(user_id: Optional[str]) -> bool:
+    return user_id == "guest"
 
-    insert_row(
-        "chat_messages",
-        {
-            "session_id": session_id,
-            "role": "user",
-            "content": message,
-            "created_at": now,
-        },
-    )
 
-    # also update chat session timestamp
-    update_row(
-        "chat_sessions",
-        {"id": session_id},
-        {"updated_at": now},
-    )
+def _require_chat_user_id(req: ChatRequest) -> str:
+    user_id = (req.user_id or "").strip()
+    if not user_id or _is_bare_guest_user(user_id):
+        raise HTTPException(
+            status_code=401,
+            detail="Login required. Open the login page or call /auth/guest before starting a guest chat.",
+        )
+    req.user_id = user_id
+    return user_id
+
 
 @router.get("/userinfo/{user_id}")
 async def get_user_info(user_id: str):
+    if _is_bare_guest_user(user_id):
+        raise HTTPException(status_code=401, detail="Login required. Use /auth/guest for guest mode.")
+
+    if is_guest_user(user_id):
+        return {
+            "success": True,
+            "data": {
+                "user_id": user_id,
+                "email": "",
+                "first_name": "Guest",
+                "last_name": "",
+                "bio": None,
+                "location": None,
+                "website": None,
+                "guest": True,
+            },
+        }
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
 
@@ -142,6 +168,25 @@ async def get_user_info(user_id: str):
 
 @router.post("/userinfo/update")
 async def update_user_info(req: UpdateUserInfo):
+    if _is_bare_guest_user(req.user_id):
+        raise HTTPException(status_code=401, detail="Login required. Use /auth/guest for guest mode.")
+
+    if is_guest_user(req.user_id):
+        return {
+            "success": True,
+            "message": "Guest profile changes are temporary.",
+            "data": {
+                "user_id": req.user_id,
+                "email": req.email,
+                "first_name": req.first_name,
+                "last_name": req.last_name,
+                "bio": req.bio,
+                "location": req.location,
+                "website": req.website,
+                "guest": True,
+            },
+        }
+
     if supabase is None:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
@@ -176,6 +221,12 @@ async def update_user_info(req: UpdateUserInfo):
 
 @router.get("/get_chats/{user_id}")
 async def get_chats(user_id: str):
+    if _is_bare_guest_user(user_id):
+        raise HTTPException(status_code=401, detail="Login required. Use /auth/guest for guest mode.")
+
+    if is_guest_user(user_id):
+        return get_guest_chats(user_id)
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -187,6 +238,10 @@ async def get_chats(user_id: str):
 
 @router.get("/get_chat/{chat_id}")
 async def get_chat(chat_id: str):
+    guest_messages = get_guest_messages(chat_id)
+    if guest_messages is not None:
+        return guest_messages
+
     if supabase is None:
         raise HTTPException(status_code=500, detail="Supabase not configured")
 
@@ -209,6 +264,25 @@ async def get_chat(chat_id: str):
 
 @router.post("/create_chat")
 async def create_chat(payload: CreateChatRequest):
+    title = payload.title or "New Chat"
+
+    if _is_bare_guest_user(payload.user_id):
+        raise HTTPException(status_code=401, detail="Login required. Use /auth/guest for guest mode.")
+
+    if is_guest_user(payload.user_id):
+        new_chat_id, session, _ = ensure_guest_chat(
+            payload.user_id,
+            title=title,
+            create_new=True,
+        )
+        session["title_set"] = False
+        return {
+            "id": new_chat_id,
+            "title": title,
+            "user_id": payload.user_id,
+            "guest": True,
+        }
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -217,21 +291,26 @@ async def create_chat(payload: CreateChatRequest):
         insert_row('chat_sessions', {
             'id': new_chat_id,
             'user_id': payload.user_id,
-            'title': payload.title,
+            'title': title,
             'created_at': now,
             'updated_at': now
         })
-        # attach to in-memory session
-        session = user_sessions.setdefault(payload.user_id, {})
-        session['session_id'] = new_chat_id
-        user_sessions[payload.user_id] = session
-        return {'id': new_chat_id, 'title': payload.title, 'user_id': payload.user_id}
+        # Make the newly created chat the active empty chat for clients that do
+        # not echo session_id on the first follow-up request.
+        user_sessions[payload.user_id] = {
+            "session_id": new_chat_id,
+            "title_set": False,
+        }
+        return {'id': new_chat_id, 'title': title, 'user_id': payload.user_id}
     except Exception:
         logger.exception('create_chat failed')
         raise HTTPException(status_code=500, detail='Failed to create chat')
 
 @router.delete("/delete_chat/{chat_id}")
 async def delete_chat(chat_id: str):
+    if delete_guest_chat(chat_id):
+        return {'success': True}
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -291,6 +370,8 @@ def _extract_stream_meta(result: Any) -> Optional[Dict[str, Any]]:
         payload["node_id"] = result["node_id"]
     if isinstance(result.get("in_flow"), bool):
         payload["in_flow"] = result["in_flow"]
+    if isinstance(result.get("session_id"), str):
+        payload["session_id"] = result["session_id"]
     if question:
         payload["question"] = question
     if options:
@@ -305,6 +386,7 @@ def _extract_stream_meta(result: Any) -> Optional[Dict[str, Any]]:
 
 
 def _validate_stream_prompt(req: ChatRequest) -> str:
+    _require_chat_user_id(req)
     prompt = (req.message or "").strip()
 
     if not prompt and not req.attachment:
@@ -317,7 +399,7 @@ def _validate_stream_prompt(req: ChatRequest) -> str:
         if kind is None:
             raise HTTPException(
                 status_code=400,
-                detail="Only PDF, DOC, DOCX, and TXT attachments are supported.",
+                detail="Only PDF, DOC, DOCX, TXT, PNG, JPG, JPEG, GIF, and WEBP attachments are supported.",
             )
         if not req.attachment.get("bytes"):
             raise HTTPException(status_code=400, detail="Attachment is missing content bytes.")
@@ -347,6 +429,12 @@ def _extract_reply_text_for_stream(result: Any) -> str:
     return ""
 
 
+def _attach_session_id(result: Any, session_id: Optional[str]) -> Any:
+    if isinstance(result, dict) and session_id and "session_id" not in result:
+        result["session_id"] = session_id
+    return result
+
+
 async def _stream_text_char_by_char(
     text: str,
     request: Request,
@@ -369,68 +457,52 @@ async def _token_stream_generator(req: ChatRequest, request: Request, stream_nam
     try:
         # Preserve existing greeting behavior (session-aware handler + persistence).
         if is_greeting(prompt):
-            user_id = req.user_id or "guest"
-            is_guest = user_id.startswith("guest_") or user_id == "guest"
-
-            if is_guest:
-                guest_session = user_sessions.get(user_id, {"messages": []})
-                guest_session["messages"].append({"role": "user", "content": prompt})
-                guest_session["messages"].append({"role": "assistant", "content": GREETING_REPLY})
-                user_sessions[user_id] = guest_session
-                reply_text = GREETING_REPLY
-            else:
-                result = await _process_chat_request(req)
-                meta_payload = _extract_stream_meta(result)
-                if meta_payload and not await request.is_disconnected():
-                    yield _sse_event_chunk("meta", meta_payload)
-                reply_text = _extract_reply_text_for_stream(result)
+            result = await _process_chat_request(req)
+            meta_payload = _extract_stream_meta(result)
+            if meta_payload and not await request.is_disconnected():
+                yield _sse_event_chunk("meta", meta_payload)
+            reply_text = _extract_reply_text_for_stream(result)
 
             if reply_text:
                 async for chunk in _stream_text_char_by_char(reply_text, request, stream_name):
                     yield chunk
             return
 
-        user_id = req.user_id or "guest"
-        is_guest = user_id.startswith("guest_") or user_id == "guest"
+        user_id = _require_chat_user_id(req)
         session = None
         session_key = None
         session_id = None
 
-        if is_guest:
-            guest_session = user_sessions.get(user_id, {"messages": []})
-            guest_session["messages"].append({"role": "user", "content": prompt})
-            user_sessions[user_id] = guest_session
-        else:
-            session, session_key, session_id = await init_or_get_session(req, user_id)
+        session, session_key, session_id = await init_or_get_session(req, user_id)
 
-            # Flow interactions (existing flow or trigger phrase) must run through the
-            # regular request processor; otherwise streaming path bypasses flow logic.
-            if req.attachment or session.get("in_flow") or matches_services_trigger(prompt):
-                result = await _process_chat_request(req)
-                meta_payload = _extract_stream_meta(result)
-                if meta_payload and not await request.is_disconnected():
-                    yield _sse_event_chunk("meta", meta_payload)
-                reply_text = _extract_reply_text_for_stream(result)
-                if reply_text:
-                    async for chunk in _stream_text_char_by_char(reply_text, request, stream_name):
-                        yield chunk
-                return
+        # Flow interactions (existing flow or trigger phrase) must run through the
+        # regular request processor; otherwise streaming path bypasses flow logic.
+        if req.attachment or session.get("in_flow") or matches_services_trigger(prompt):
+            result = await _process_chat_request(req)
+            meta_payload = _extract_stream_meta(result)
+            if meta_payload and not await request.is_disconnected():
+                yield _sse_event_chunk("meta", meta_payload)
+            reply_text = _extract_reply_text_for_stream(result)
+            if reply_text:
+                async for chunk in _stream_text_char_by_char(reply_text, request, stream_name):
+                    yield chunk
+            return
 
-            update_session_title_if_needed(
+        update_session_title_if_needed(
+            session=session,
+            session_id=session_id,
+            message=prompt,
+            in_flow=False,
+        )
+        if session_id:
+            await persist_chat_pair(
+                user_id=user_id,
+                session_key=session_key,
                 session=session,
                 session_id=session_id,
-                message=prompt,
-                in_flow=False,
+                user_message=prompt,
+                assistant_message=None,
             )
-            if session_id:
-                await persist_chat_pair(
-                    user_id=user_id,
-                    session_key=session_key,
-                    session=session,
-                    session_id=session_id,
-                    user_message=prompt,
-                    assistant_message=None,
-                )
 
         reply_parts: List[str] = []
         async for token in generate_answer_stream_async(prompt):
@@ -447,12 +519,6 @@ async def _token_stream_generator(req: ChatRequest, request: Request, stream_nam
 
         full_reply = "".join(reply_parts).strip()
         if not full_reply:
-            return
-
-        if is_guest:
-            guest_session = user_sessions.get(user_id, {"messages": []})
-            guest_session["messages"].append({"role": "assistant", "content": full_reply})
-            user_sessions[user_id] = guest_session
             return
 
         if session_id:
@@ -490,20 +556,24 @@ def _stream_response(prompt: str, request: Request, stream_name: str) -> Streami
 
 
 async def _process_chat_request(req: ChatRequest):
-    user_id = req.user_id or "guest"
+    user_id = _require_chat_user_id(req)
     message = (req.message or "").strip()
 
     # ---------------- VALIDATION ----------------
     if not message and not req.attachment:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    # ---------------- GUEST CHAT ----------------
-    is_guest = user_id.startswith("guest_") or user_id == "guest"
-    if is_guest:
-        return await handle_guest_chat(user_id, message)
-
     # ---------------- SESSION SETUP ----------------
     session, session_key, session_id = await init_or_get_session(req, user_id)
+
+    if req.attachment and not (session.get("pdf_mode") and not session.get("pdf_processed")):
+        try:
+            user_attachment = await prepare_user_attachment(req.attachment, session_id)
+            if user_attachment:
+                session["_pending_user_attachment"] = user_attachment
+        except Exception:
+            logger.exception("Failed to store user attachment.")
+            raise HTTPException(status_code=400, detail="Failed to store uploaded attachment.")
 
     update_session_title_if_needed(
         session=session,
@@ -515,34 +585,34 @@ async def _process_chat_request(req: ChatRequest):
     # ---------------- GREETING ----------------
     # Do not route attachments or active flow steps to greeting handling.
     if is_greeting(message) and not req.attachment and not session.get("in_flow"):
-        return await handle_greeting(
+        return _attach_session_id(await handle_greeting(
             message=message,
             user_id=user_id,
             session_key=session_key,
             session=session,
             session_id=session_id,
-        )
+        ), session_id)
 
     # ---------------- SERVICE TRIGGER ----------------
     if not session["in_flow"] and matches_services_trigger(message):
-        return await handle_service_trigger(
+        return _attach_session_id(await handle_service_trigger(
                 message=message,
                 user_id=user_id,
                 session=session,
                 session_key=session_key,
                 session_id=session_id,
-            )
+            ), session_id)
 
 
     # ---------------- NON-FLOW CHAT ----------------
     if not session["in_flow"]:
-        return await handle_normal_qa(
+        return _attach_session_id(await handle_normal_qa(
             message=message,
             session=session,
             session_key=session_key,
             user_id=user_id,
             session_id=session_id,
-        )
+        ), session_id)
 
     # ---------------- DOCUMENT UPLOAD + EXTRACTION ----------------
     if (
@@ -550,23 +620,23 @@ async def _process_chat_request(req: ChatRequest):
         and not session.get("pdf_processed")
         and req.attachment
     ):
-        return await handle_pdf_upload_and_extraction(
+        return _attach_session_id(await handle_pdf_upload_and_extraction(
             req=req,
             session=session,
             session_key=session_key,
             user_id=user_id,
             session_id=session_id,
             message=message,
-        )
+        ), session_id)
 
     # ---------------- FLOW ENGINE ----------------
-    return await handle_flow_engine(
+    return _attach_session_id(await handle_flow_engine(
         message=message,
         session=session,
         session_key=session_key,
         user_id=user_id,
         session_id=session_id,
-    )
+    ), session_id)
 
 
 @router.post("/chat")
@@ -595,6 +665,8 @@ async def chat_sync_endpoint(req: ChatRequest):
     _validate_stream_prompt(req)
     result = await _process_chat_request(req)
     if isinstance(result, dict):
+        if req.session_id and "session_id" not in result:
+            result["session_id"] = req.session_id
         return result
     return {
         "reply": str(result),
@@ -618,6 +690,12 @@ async def chat_stream_endpoint(req: ChatRequest, request: Request):
 
 @router.get("/search_chats/{user_id}")
 async def search_chats(user_id: str, q: str = Query(..., min_length=1)):
+    if _is_bare_guest_user(user_id):
+        raise HTTPException(status_code=401, detail="Login required. Use /auth/guest for guest mode.")
+
+    if is_guest_user(user_id):
+        return search_guest_chats(user_id, q)
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -629,6 +707,9 @@ async def search_chats(user_id: str, q: str = Query(..., min_length=1)):
 
 @router.delete("/clear_chat/{chat_id}")
 async def clear_chat(chat_id: str):
+    if clear_guest_chat(chat_id):
+        return {'success': True}
+
     if supabase is None:
         raise HTTPException(status_code=500, detail='Supabase not configured')
     try:
@@ -642,13 +723,7 @@ async def clear_chat(chat_id: str):
 @router.post("/logout/{user_id}")
 async def logout(user_id: str):
     try:
-        keys_to_delete = [
-            k
-            for k in list(user_sessions.keys())
-            if k == user_id or k.startswith(f"{user_id}:")
-        ]
-        for k in keys_to_delete:
-            del user_sessions[k]
+        delete_guest_user(user_id)
         logger.info(f"Logout successful for user {user_id}")
         return {"success": True}
     except Exception as e:
