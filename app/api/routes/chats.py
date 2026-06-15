@@ -59,8 +59,7 @@ _DOC_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 _TEXT_MIME_TYPES = {"text/plain", "text"}
-_IMAGE_MIME_TYPES = {"image/gif", "image/jpeg", "image/jpg", "image/png", "image/webp"}
-_SUPPORTED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+_SUPPORTED_UPLOAD_EXTENSIONS = {".pdf", ".doc", ".docx", ".txt"}
 
 def reset_model_context(session_id: str):
     model_context[session_id] = {"tokens_used": 0}
@@ -91,15 +90,6 @@ def _infer_attachment_kind(attachment: Any) -> Optional[str]:
         return "doc"
     if raw_name.endswith(".txt") or raw_type in {"txt", "plain", "text"} or raw_type in _TEXT_MIME_TYPES:
         return "txt"
-    if raw_name.endswith((".jpg", ".jpeg")) or raw_type in {"jpg", "jpeg", "image/jpg", "image/jpeg"}:
-        return "jpg"
-    if raw_name.endswith(".png") or raw_type in {"png", "image/png"}:
-        return "png"
-    if raw_name.endswith(".gif") or raw_type in {"gif", "image/gif"}:
-        return "gif"
-    if raw_name.endswith(".webp") or raw_type in {"webp", "image/webp"}:
-        return "webp"
-
     # Some clients send a generic type while preserving extension in `name`.
     for ext in _SUPPORTED_UPLOAD_EXTENSIONS:
         if raw_name.endswith(ext):
@@ -399,7 +389,7 @@ def _validate_stream_prompt(req: ChatRequest) -> str:
         if kind is None:
             raise HTTPException(
                 status_code=400,
-                detail="Only PDF, DOC, DOCX, TXT, PNG, JPG, JPEG, GIF, and WEBP attachments are supported.",
+                detail="Only PDF, DOC, DOCX, and TXT attachments are supported.",
             )
         if not req.attachment.get("bytes"):
             raise HTTPException(status_code=400, detail="Attachment is missing content bytes.")

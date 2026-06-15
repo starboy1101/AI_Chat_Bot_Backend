@@ -46,7 +46,7 @@ class DocumentParser:
                 if not text:
                     continue
                 style_name = item.style.name if item.style is not None else None
-                level = self._heading_level(style_name)
+                level = self._heading_level(style_name) or self._inferred_heading_level(text)
                 blocks.append(
                     DocumentBlock(
                         kind="heading" if level else "paragraph",
@@ -152,6 +152,17 @@ class DocumentParser:
             return int(match.group(1))
         return None
 
+    def _inferred_heading_level(self, text: str) -> int | None:
+        text = normalize_space(text)
+        if not text or re.match(r"^(?:FR|NFR|REQ|SWRS)[-_ ]?\d+\b", text, flags=re.I):
+            return None
+
+        match = re.match(r"^(\d+(?:\.\d+)*)\.?\s+[A-Z][A-Za-z0-9 &/(),-]{2,}$", text)
+        if match and len(text) <= 120:
+            return min(match.group(1).count(".") + 1, 9)
+
+        return None
+
 
 def extract_docx_text_fast(file_bytes: bytes) -> str:
     """Fallback text extractor that reads raw DOCX XML parts."""
@@ -167,4 +178,3 @@ def extract_docx_text_fast(file_bytes: bytes) -> str:
             if plain:
                 parts.append(plain)
     return normalize_space("\n\n".join(parts))
-

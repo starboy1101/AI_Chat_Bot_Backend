@@ -1,4 +1,5 @@
 # stdlib
+import asyncio
 import base64
 import binascii
 import html
@@ -30,11 +31,12 @@ from app.services.storage_utils import upload_file_to_supabase, upload_pdf_to_su
 from app.state.chat_state import ensure_guest_chat, is_guest_user, user_sessions
 from app.utils.greetings import GREETING_REPLY
 from srs_generator.extractor import SRSIntelligencePipeline
+from srs_generator.local_ai import LocalAISRSGenerator, LocalAIUnavailableError, build_srs_comparison
 from srs_generator.models import SRSProject
 from srs_generator.section_instructions import PROJECT_FIELD_LABELS
 from srs_generator.template_engine import SrsTemplateRenderer
 from srs_generator.utils import safe_filename, truthy_text, write_json
-from srs_generator.validator import FALLBACK_TEXT, SRSValidator, fill_missing_srs_fields
+from srs_generator.validator import SRSValidator, fill_missing_srs_fields
 
 logger = logging.getLogger(__name__)
 
@@ -72,15 +74,11 @@ _TEXT_MIME_TYPES = {
     "application/rtf",
     "application/x-rtf",
 }
-_IMAGE_CONTENT_TYPES = {
-    "gif": "image/gif",
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "png": "image/png",
-    "webp": "image/webp",
-}
-
 SRS_OUTPUT_DIR = Path("srs_generator/output_docs")
+SRS_AI_REGENERATE_NODE = "__srs_ai_regenerate_choice"
+SRS_SELECT_VERSION_NODE = "__srs_select_preferred_version"
+SRS_AI_YES_INPUTS = {"yes", "y", "generate", "regenerate", "ai", "use ai", "local ai"}
+SRS_AI_NO_INPUTS = {"no", "n", "skip", "no thanks", "keep existing", "existing"}
 
 
 def _srs_project_to_dict(project: SRSProject) -> Dict[str, Any]:
@@ -95,9 +93,11 @@ def _srs_project_from_dict(data: Dict[str, Any]) -> SRSProject:
     return SRSProject.parse_obj(data)
 
 
-def _save_srs_docx_to_output_dir(project: SRSProject, docx_bytes: bytes) -> Dict[str, str]:
+def _save_srs_docx_to_output_dir(project: SRSProject, docx_bytes: bytes, suffix: str = "") -> Dict[str, str]:
     SRS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"{safe_filename(project.project_name)}_SRS.docx"
+    safe_suffix = safe_filename(suffix).strip("_") if suffix else ""
+    suffix_part = f"_{safe_suffix}" if safe_suffix else ""
+    filename = f"{safe_filename(project.project_name)}{suffix_part}_SRS.docx"
     output_path = SRS_OUTPUT_DIR / filename
     output_path.write_bytes(docx_bytes)
     return {
@@ -111,7 +111,7 @@ def _build_srs_missing_questions(project: SRSProject) -> List[Dict[str, str]]:
     """Dormant clarification-question builder for a future interactive mode.
 
     The active flow must not ask remaining SRS questions. Missing values are
-    auto-filled through fill_missing_srs_fields() using FALLBACK_TEXT.
+    completed through fill_missing_srs_fields() using contextual inference.
     """
     return []
 
@@ -173,6 +173,112 @@ def _current_srs_missing_question(session: Dict[str, Any]) -> Optional[Dict[str,
     return None
 
 
+def _normalized_intent_text(message: str) -> str:
+    text = re.sub(r"[^a-zA-Z0-9\s]+", " ", message or "").lower()
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _is_srs_ai_yes(message: str) -> bool:
+    normalized = _normalized_intent_text(message)
+    if normalized in SRS_AI_YES_INPUTS:
+        return True
+    return any(token in normalized.split() for token in {"yes", "ai", "regenerate"})
+
+
+def _is_srs_ai_no(message: str) -> bool:
+    normalized = _normalized_intent_text(message)
+    if normalized in SRS_AI_NO_INPUTS:
+        return True
+    return normalized.startswith("no ") or normalized == "no" or "keep existing" in normalized
+
+
+def _srs_ai_offer_text() -> str:
+    return (
+        "Would you like to generate one more SRS using the local AI setup "
+        "(the configured Ollama SRS model) "
+        "and compare it with this existing version?"
+    )
+
+
+def _srs_attachment_label(attachment: Optional[Dict[str, Any]]) -> str:
+    if not isinstance(attachment, dict):
+        return "Not available"
+    public_url = attachment.get("url")
+    local_url = attachment.get("download_url")
+    if public_url and local_url:
+        return f"{public_url} (local: {local_url})"
+    return str(public_url or local_url or "Not available")
+
+
+def _format_srs_comparison_text(
+    comparison: Dict[str, Any],
+    original_attachment: Optional[Dict[str, Any]],
+    ai_attachment: Optional[Dict[str, Any]],
+) -> str:
+    original = comparison.get("original", {})
+    ai_generated = comparison.get("ai_generated", {})
+    recommendation = comparison.get("recommendation", "")
+    ai_backend = str(ai_generated.get("local_ai_backend") or "unknown")
+    ai_model = str(ai_generated.get("local_ai_model") or "unknown")
+    ai_status = str(ai_generated.get("local_ai_generation_status") or "generated")
+    ai_backend_label = {
+        "colab_fastapi": "Google Colab FastAPI",
+        "ollama": "Ollama",
+    }.get(ai_backend, ai_backend)
+
+    return (
+        "Comparison between both SRS versions:\n\n"
+        f"AI generation source: {ai_backend_label} ({ai_model})\n\n"
+        f"AI generation status: {ai_status}\n\n"
+        "| Metric | Existing Generator | Local AI Generator |\n"
+        "| --- | ---: | ---: |\n"
+        f"| Requirements | {original.get('requirements', 0)} | {ai_generated.get('requirements', 0)} |\n"
+        f"| Confidence | {original.get('confidence', 0)} | {ai_generated.get('confidence', 0)} |\n"
+        f"| Auto-filled fields | {original.get('fallback_fields', 0)} | {ai_generated.get('fallback_fields', 0)} |\n"
+        f"| Validation warnings | {original.get('validation_warnings', 0)} | {ai_generated.get('validation_warnings', 0)} |\n"
+        f"| Functional requirements | {original.get('functional', 0)} | {ai_generated.get('functional', 0)} |\n"
+        f"| Non-functional requirements | {original.get('non_functional', 0)} | {ai_generated.get('non_functional', 0)} |\n\n"
+        f"Existing SRS: {_srs_attachment_label(original_attachment)}\n\n"
+        f"Local AI SRS: {_srs_attachment_label(ai_attachment)}\n\n"
+        f"Recommendation: {recommendation}\n\n"
+        "Please select the final version to use."
+    )
+
+
+def _selected_srs_version(message: str) -> Optional[str]:
+    normalized = _normalized_intent_text(message)
+    if any(token in normalized for token in ("ai", "local", "second", "generated")):
+        return "ai"
+    if any(token in normalized for token in ("existing", "original", "first", "baseline", "current")):
+        return "original"
+    return None
+
+
+def _render_upload_srs_variant(project: SRSProject, session_id: str, variant: str) -> Tuple[bytes, Dict[str, str], str]:
+    suffix = ""
+    if variant == "ai":
+        backend = str(project.extraction_passes.get("local_ai_backend") or "").lower()
+        status = str(project.extraction_passes.get("local_ai_generation_status") or "").lower()
+        if status == "fallback_to_existing_srs_pipeline":
+            suffix = "EXISTING_PIPELINE_AI"
+        elif backend == "colab_fastapi":
+            suffix = "COLAB_AI"
+        elif backend == "ollama":
+            suffix = "OLLAMA_AI"
+        else:
+            suffix = "AI"
+    generated_docx = SrsTemplateRenderer().render_to_bytes(project)
+    local_docx = _save_srs_docx_to_output_dir(project, generated_docx, suffix=suffix)
+    generated_name = local_docx["filename"]
+    storage_prefix = f"SRS_{suffix}" if suffix else "SRS"
+    generated_url = upload_file_to_supabase(
+        generated_docx,
+        f"{storage_prefix}_{session_id}_{generated_name}",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    return generated_docx, local_docx, generated_url
+
+
 def _infer_attachment_kind(attachment: Any) -> Optional[str]:
     if not isinstance(attachment, dict):
         return None
@@ -193,14 +299,6 @@ def _infer_attachment_kind(attachment: Any) -> Optional[str]:
         or raw_type.startswith("text/")
     ):
         return "txt"
-    if raw_name.endswith((".jpg", ".jpeg")) or raw_type in {"jpg", "jpeg", "image/jpg", "image/jpeg"}:
-        return "jpg"
-    if raw_name.endswith(".png") or raw_type in {"png", "image/png"}:
-        return "png"
-    if raw_name.endswith(".gif") or raw_type in {"gif", "image/gif"}:
-        return "gif"
-    if raw_name.endswith(".webp") or raw_type in {"webp", "image/webp"}:
-        return "webp"
     return None
 
 
@@ -216,12 +314,10 @@ def _decode_attachment_bytes(attachment: Dict[str, Any]) -> bytes:
 
 
 def _attachment_display_type(kind: str) -> str:
-    return "image" if kind in _IMAGE_CONTENT_TYPES else kind
+    return kind
 
 
 def _attachment_content_type(kind: str) -> Optional[str]:
-    if kind in _IMAGE_CONTENT_TYPES:
-        return _IMAGE_CONTENT_TYPES[kind]
     return None
 
 
@@ -790,6 +886,19 @@ async def init_or_get_session(req: ChatRequest, user_id: str):
         "session_id": raw_session_id,
         "pdf_mode": False,
         "pdf_processed": False,
+        "srs_json": None,
+        "srs_docx": None,
+        "srs_docx_local_path": None,
+        "srs_original_attachment": None,
+        "srs_ai_source_text": None,
+        "srs_ai_source_name": None,
+        "srs_ai_source_images": [],
+        "srs_ai_json": None,
+        "srs_ai_docx": None,
+        "srs_ai_docx_local_path": None,
+        "srs_ai_attachment": None,
+        "srs_comparison": None,
+        "selected_srs_version": None,
     }
 
     session = guest_session if guest_session is not None else user_sessions.get(session_key, {})
@@ -880,6 +989,19 @@ async def handle_service_trigger(
             "pending_attachment": None,
             "pdf_mode": True,
             "pdf_processed": False,
+            "srs_json": None,
+            "srs_docx": None,
+            "srs_docx_local_path": None,
+            "srs_original_attachment": None,
+            "srs_ai_source_text": None,
+            "srs_ai_source_name": None,
+            "srs_ai_source_images": [],
+            "srs_ai_json": None,
+            "srs_ai_docx": None,
+            "srs_ai_docx_local_path": None,
+            "srs_ai_attachment": None,
+            "srs_comparison": None,
+            "selected_srs_version": None,
         }
     )
 
@@ -1111,15 +1233,6 @@ async def handle_pdf_upload_and_extraction(
             json_path = f"srs_generator/extracted_json/{safe_filename(srs_project.project_name)}_{session_id}.json"
             write_json(json_path, _srs_project_to_dict(srs_project))
 
-            session["srs_json"] = _srs_project_to_dict(srs_project)
-            session["srs_docx"] = generated_url
-            session["srs_docx_local_path"] = local_docx["path"]
-            session["in_flow"] = False
-            session["node_id"] = None
-            session["pdf_mode"] = False
-            session["pdf_processed"] = True
-            user_sessions[session_key] = session
-
             missing_count = len(
                 [
                     finding
@@ -1134,13 +1247,14 @@ async def handle_pdf_upload_and_extraction(
                 ]
             )
             reply_text = (
-                "SRS generated successfully from the uploaded engineering document.\n\n"
-                f"Project: {srs_project.project_name}\n"
-                f"Requirements extracted: {len(srs_project.requirements)}\n"
-                f"Pipeline confidence: {srs_project.confidence:.2f}\n"
-                f"Missing fields auto-filled with: {FALLBACK_TEXT}\n"
-                f"Remaining validation warnings: {missing_count}\n\n"
-                "The generated DOCX preserves the master template and duplicates the requirement table for each extracted requirement."
+                "SRS generated successfully from the uploaded engineering document.\n\n\n"
+                f"Project: {srs_project.project_name}\n\n"
+                f"Requirements extracted: {len(srs_project.requirements)}\n\n"
+                f"Pipeline confidence: {srs_project.confidence:.2f}\n\n"
+                "Missing fields completed from source context and requirement-level engineering inference.\n\n"
+                f"Remaining validation warnings: {missing_count}\n\n\n"
+                "The generated DOCX preserves the master template and duplicates the requirement table for each extracted requirement.\n\n"
+                f"{_srs_ai_offer_text()}"
             )
             attachment = {
                 "type": "docx",
@@ -1149,6 +1263,19 @@ async def handle_pdf_upload_and_extraction(
                 "local_path": local_docx["path"],
                 "download_url": local_docx["download_url"],
             }
+            session["srs_json"] = _srs_project_to_dict(srs_project)
+            session["srs_docx"] = generated_url
+            session["srs_docx_local_path"] = local_docx["path"]
+            session["srs_original_attachment"] = attachment
+            session["srs_ai_source_text"] = extracted_text
+            session["srs_ai_source_name"] = original_file_name
+            session["srs_ai_source_images"] = []
+            session["in_flow"] = True
+            session["node_id"] = SRS_AI_REGENERATE_NODE
+            session["pdf_mode"] = False
+            session["pdf_processed"] = True
+            user_sessions[session_key] = session
+
             await persist_chat_pair(
                 user_id,
                 session_key,
@@ -1161,7 +1288,9 @@ async def handle_pdf_upload_and_extraction(
             return {
                 "reply": reply_text,
                 "attachment": attachment,
-                "in_flow": False,
+                "options": ["Yes, generate AI version", "No, keep existing SRS"],
+                "in_flow": True,
+                "node_id": SRS_AI_REGENERATE_NODE,
                 "srs_json": _srs_project_to_dict(srs_project),
             }
     except Exception:
@@ -1407,6 +1536,180 @@ def _next_requirement_or_final(session: dict) -> str:
     return "final_step"
 
 
+async def _handle_srs_ai_regenerate_choice(
+    message: str,
+    session: dict,
+    session_key: str,
+    user_id: str,
+    session_id: str,
+):
+    if _is_srs_ai_no(message):
+        session["selected_srs_version"] = "original"
+        session["in_flow"] = False
+        session["node_id"] = None
+        user_sessions[session_key] = session
+
+        attachment = session.get("srs_original_attachment")
+        reply_text = "No problem. The existing generated SRS remains selected as the final version."
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text, attachment)
+        return {
+            "reply": reply_text,
+            "attachment": attachment if isinstance(attachment, dict) else None,
+            "in_flow": False,
+            "selected_srs_version": "original",
+        }
+
+    if not _is_srs_ai_yes(message):
+        reply_text = "Please reply Yes to generate the local AI SRS version, or No to keep the existing SRS."
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+        return {
+            "reply": reply_text,
+            "options": ["Yes, generate AI version", "No, keep existing SRS"],
+            "in_flow": True,
+            "node_id": SRS_AI_REGENERATE_NODE,
+        }
+
+    srs_data = session.get("srs_json")
+    if not isinstance(srs_data, dict):
+        session["in_flow"] = False
+        session["node_id"] = None
+        user_sessions[session_key] = session
+        reply_text = "The existing SRS data is no longer available. Please upload the document again."
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+        return {"reply": reply_text, "in_flow": False}
+
+    baseline_project = _srs_project_from_dict(srs_data)
+    source_text = str(session.get("srs_ai_source_text") or "")
+    source_name = str(session.get("srs_ai_source_name") or baseline_project.source_name or "uploaded_document")
+
+    try:
+        ai_project = await asyncio.to_thread(
+            LocalAISRSGenerator().generate,
+            source_text=source_text,
+            baseline_project=baseline_project,
+            source_name=source_name,
+        )
+        if _customer_name_from_session(session):
+            ai_project.assumptions.append(f"Customer: {_customer_name_from_session(session)}")
+        ai_project = fill_missing_srs_fields(ai_project)
+
+        _generated_docx, local_docx, generated_url = _render_upload_srs_variant(ai_project, session_id, "ai")
+        ai_attachment = {
+            "type": "docx",
+            "name": local_docx["filename"],
+            "url": generated_url,
+            "local_path": local_docx["path"],
+            "download_url": local_docx["download_url"],
+        }
+        json_path = f"srs_generator/extracted_json/{safe_filename(ai_project.project_name)}_ai_{session_id}.json"
+        write_json(json_path, _srs_project_to_dict(ai_project))
+
+        comparison = build_srs_comparison(baseline_project, ai_project)
+        original_attachment = session.get("srs_original_attachment")
+        reply_text = _format_srs_comparison_text(
+            comparison,
+            original_attachment if isinstance(original_attachment, dict) else None,
+            ai_attachment,
+        )
+
+        session["srs_ai_json"] = _srs_project_to_dict(ai_project)
+        session["srs_ai_docx"] = generated_url
+        session["srs_ai_docx_local_path"] = local_docx["path"]
+        session["srs_ai_attachment"] = ai_attachment
+        session["srs_comparison"] = comparison
+        session["in_flow"] = True
+        session["node_id"] = SRS_SELECT_VERSION_NODE
+        user_sessions[session_key] = session
+
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text, ai_attachment)
+        return {
+            "reply": reply_text,
+            "attachment": ai_attachment,
+            "options": ["Keep Existing SRS", "Use AI Generated SRS"],
+            "comparison": comparison,
+            "in_flow": True,
+            "node_id": SRS_SELECT_VERSION_NODE,
+        }
+    except LocalAIUnavailableError as exc:
+        logger.warning("Local AI SRS generation unavailable: %s", exc)
+        reply_text = (
+            "The existing SRS is ready, but the local AI generator is not available yet.\n\n"
+            f"Reason: {exc}\n\n"
+            "To enable it, start the Colab FastAPI/ngrok SRS API and set COLAB_SRS_BASE_URL, then reply Yes again. "
+            "If Colab is not configured, the fallback Ollama SRS model uses LOCAL_AI_SRS_TEXT_MODEL."
+        )
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+        return {
+            "reply": reply_text,
+            "options": ["Yes, try again", "No, keep existing SRS"],
+            "in_flow": True,
+            "node_id": SRS_AI_REGENERATE_NODE,
+        }
+    except Exception as exc:
+        logger.exception("Local AI SRS regeneration failed.")
+        reply_text = (
+            "The existing SRS is still available, but the local AI regeneration failed.\n\n"
+            f"Reason: {exc}\n\n"
+            "Please check the local model logs and try again."
+        )
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+        return {
+            "reply": reply_text,
+            "options": ["Yes, try again", "No, keep existing SRS"],
+            "in_flow": True,
+            "node_id": SRS_AI_REGENERATE_NODE,
+        }
+
+
+async def _handle_srs_version_selection(
+    message: str,
+    session: dict,
+    session_key: str,
+    user_id: str,
+    session_id: str,
+):
+    selected = _selected_srs_version(message)
+    if selected is None:
+        reply_text = "Please choose either Keep Existing SRS or Use AI Generated SRS."
+        await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
+        return {
+            "reply": reply_text,
+            "options": ["Keep Existing SRS", "Use AI Generated SRS"],
+            "in_flow": True,
+            "node_id": SRS_SELECT_VERSION_NODE,
+        }
+
+    attachment_key = "srs_ai_attachment" if selected == "ai" else "srs_original_attachment"
+    attachment = session.get(attachment_key)
+    if selected == "ai" and isinstance(session.get("srs_ai_json"), dict):
+        session["srs_json"] = session["srs_ai_json"]
+        session["srs_docx"] = session.get("srs_ai_docx")
+        session["srs_docx_local_path"] = session.get("srs_ai_docx_local_path")
+
+    session["selected_srs_version"] = selected
+    session["in_flow"] = False
+    session["node_id"] = None
+    user_sessions[session_key] = session
+
+    label = "local AI generated SRS" if selected == "ai" else "existing generated SRS"
+    reply_text = f"Selected the {label} as the final SRS version."
+    await persist_chat_pair(
+        user_id,
+        session_key,
+        session,
+        session_id,
+        message,
+        reply_text,
+        attachment if isinstance(attachment, dict) else None,
+    )
+    return {
+        "reply": reply_text,
+        "attachment": attachment if isinstance(attachment, dict) else None,
+        "in_flow": False,
+        "selected_srs_version": selected,
+    }
+
+
 async def handle_flow_engine(
     message: str,
     session: dict,
@@ -1421,6 +1724,12 @@ async def handle_flow_engine(
         reply = await get_llm_reply(message)
         await persist_chat_pair(user_id, session_key, session, session_id, message, reply)
         return {"reply": reply, "in_flow": False}
+
+    if current_id == SRS_AI_REGENERATE_NODE:
+        return await _handle_srs_ai_regenerate_choice(message, session, session_key, user_id, session_id)
+
+    if current_id == SRS_SELECT_VERSION_NODE:
+        return await _handle_srs_version_selection(message, session, session_key, user_id, session_id)
 
     if current_id == "__srs_missing_field":
         srs_data = session.get("srs_json")
@@ -1448,7 +1757,7 @@ async def handle_flow_engine(
             write_json(json_path, _srs_project_to_dict(srs_project))
         except Exception:
             logger.exception("Failed to finalize SRS document with auto-filled missing fields.")
-            reply_text = "I filled the missing SRS fields with the temporary value, but could not generate the final SRS document."
+            reply_text = "I completed the missing SRS fields from context, but could not generate the final SRS document."
             await persist_chat_pair(user_id, session_key, session, session_id, message, reply_text)
             return {
                 "reply": reply_text,
@@ -1472,10 +1781,9 @@ async def handle_flow_engine(
         user_sessions[session_key] = session
 
         reply_text = (
-            "I filled the remaining SRS fields with the temporary value and generated the document.\n\n"
+            "I completed the remaining SRS fields from context and generated the document.\n\n"
             f"Project: {srs_project.project_name}\n"
-            f"Requirements: {len(srs_project.requirements)}\n"
-            f"Temporary value: {FALLBACK_TEXT}"
+            f"Requirements: {len(srs_project.requirements)}"
         )
         await persist_chat_pair(
             user_id,

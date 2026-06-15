@@ -6,12 +6,14 @@ import difflib
 import asyncio
 import logging
 import inspect
+import json
 from typing import List, Tuple, Optional, Dict, Any
 from sentence_transformers import SentenceTransformer
 from langchain_core.prompts import PromptTemplate
 from llama_cpp import Llama
 from huggingface_hub import hf_hub_download
 from dotenv import load_dotenv
+import requests
 
 from app.core.device import default_llama_gpu_layers, sentence_transformer_device
 from app.core.config import FAISS_DIR
@@ -85,6 +87,65 @@ def _is_pdf_extractor_configured() -> bool:
     return bool(os.getenv("PDF_EXTRACTOR_REPO") and os.getenv("PDF_EXTRACTOR_FILENAME"))
 
 
+def _use_llama_cpp_backend() -> bool:
+    return _env_bool("USE_LLAMA_CPP_BACKEND", False)
+
+
+def _ollama_base_url() -> str:
+    return os.getenv("OLLAMA_BASE_URL", os.getenv("LOCAL_AI_SRS_BASE_URL", "http://localhost:11434")).rstrip("/")
+
+
+def _ollama_chat_model() -> str:
+    return os.getenv("OLLAMA_CHAT_MODEL", os.getenv("LOCAL_AI_SRS_TEXT_MODEL", "qwen2.5:3b"))
+
+
+def _ollama_extractor_model() -> str:
+    return os.getenv("OLLAMA_EXTRACTOR_MODEL", os.getenv("LOCAL_AI_SRS_HELPER_MODEL", "qwen2.5:3b"))
+
+
+def _ollama_timeout_seconds() -> int:
+    return _env_int("OLLAMA_TIMEOUT_SECONDS", _env_int("LOCAL_AI_SRS_TIMEOUT_SECONDS", 1800))
+
+
+def _ollama_options(max_tokens: int) -> Dict[str, Any]:
+    return {
+        "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.1")),
+        "num_ctx": _env_int("OLLAMA_NUM_CTX", _env_int("LOCAL_AI_SRS_NUM_CTX", 4096)),
+        "num_predict": max_tokens,
+    }
+
+
+def _ollama_chat_sync(
+    *,
+    model: str,
+    messages: List[Dict[str, str]],
+    max_tokens: int,
+    stream: bool = False,
+):
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": stream,
+        "options": _ollama_options(max_tokens),
+    }
+    response = requests.post(
+        f"{_ollama_base_url()}/api/chat",
+        json=payload,
+        timeout=_ollama_timeout_seconds(),
+        stream=stream,
+    )
+    response.raise_for_status()
+    return response
+
+
+def _ollama_response_text(response: requests.Response) -> str:
+    data = response.json()
+    message = data.get("message") if isinstance(data, dict) else None
+    if isinstance(message, dict):
+        return str(message.get("content") or "").strip()
+    return str(data.get("response") or "").strip() if isinstance(data, dict) else ""
+
+
 def _build_llama_instance(
     *,
     model_path: str,
@@ -150,7 +211,7 @@ def _load_models_and_index_sync():
         embed_model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
         logger.info("SentenceTransformer loaded on %s.", device)
 
-    if llm is None:
+    if _use_llama_cpp_backend() and llm is None:
         # Download model artifact once (may take time). Adjust repo / filename as needed.
         model_path = hf_hub_download(
             repo_id=os.getenv("LLAMA_REPO"),
@@ -169,6 +230,8 @@ def _load_models_and_index_sync():
             flash_attn=_env_bool("LLM_FLASH_ATTN", False),
         )
         logger.info("Llama model loaded.")
+    elif not _use_llama_cpp_backend():
+        logger.info("Skipping llama.cpp LLM load; using Ollama at %s.", _ollama_base_url())
 
     # Load or create FAISS index (keep in memory)
     if os.path.exists(INDEX_FILE) and os.path.exists(METADATA_FILE):
@@ -195,7 +258,7 @@ def _load_models_and_index_sync():
 def _load_pdf_extractor_model_sync():
     global pdf_llm
 
-    if not _is_pdf_extractor_configured() or pdf_llm is not None:
+    if not _use_llama_cpp_backend() or not _is_pdf_extractor_configured() or pdf_llm is not None:
         return
 
     pdf_model_path = hf_hub_download(
@@ -227,19 +290,25 @@ async def _async_preload_models(preload_pdf: bool = True):
 
 
 async def _async_warmup_models(warmup_pdf: bool = True):
-    if llm is not None:
+    if _use_llama_cpp_backend() and llm is not None:
         try:
             await _call_model_async("Reply with only: warm", max_tokens=8)
             logger.info("Primary LLM warmup completed.")
         except Exception:
             logger.exception("Primary LLM warmup failed.")
+    elif not _use_llama_cpp_backend():
+        try:
+            await _call_model_async("Reply with only: warm", max_tokens=8)
+            logger.info("Ollama chat model warmup completed.")
+        except Exception:
+            logger.exception("Ollama chat model warmup failed.")
 
-    if warmup_pdf and _is_pdf_extractor_configured():
+    if warmup_pdf and (_is_pdf_extractor_configured() or not _use_llama_cpp_backend()):
         try:
             await _call_pdf_extractor_async('Return exactly: {"warmup": true}', max_tokens=24)
-            logger.info("PDF extractor warmup completed.")
+            logger.info("Extractor model warmup completed.")
         except Exception:
-            logger.exception("PDF extractor warmup failed.")
+            logger.exception("Extractor model warmup failed.")
 
 
 async def preload_models_for_startup():
@@ -351,7 +420,8 @@ def estimate_tokens(text: str) -> int:
 async def _async_load_models_and_index():
     global embed_model, llm, pdf_llm, _index_in_memory, _faiss_mtime, _chunks_cache, _sources_cache
     async with _model_lock:
-        if embed_model is not None and llm is not None and _index_in_memory is not None:
+        llm_ready = llm is not None if _use_llama_cpp_backend() else True
+        if embed_model is not None and llm_ready and _index_in_memory is not None:
             logger.info("Models and FAISS already loaded in memory.")
             return
 
@@ -365,7 +435,7 @@ async def _async_load_models_and_index():
 
 async def _async_load_pdf_extractor_model():
     global pdf_llm
-    if not _is_pdf_extractor_configured():
+    if not _use_llama_cpp_backend() or not _is_pdf_extractor_configured():
         return
     if pdf_llm is not None:
         return
@@ -500,6 +570,25 @@ def sync_supabase_history_to_faiss():
 
 async def _call_model_async(prompt_text: str, max_tokens: int = 512) -> str:
     await _async_load_models_and_index()  # ensure loaded
+
+    if not _use_llama_cpp_backend():
+        try:
+            async with _model_lock:
+                response = await asyncio.to_thread(
+                    _ollama_chat_sync,
+                    model=_ollama_chat_model(),
+                    messages=[
+                        {"role": "system", "content": PROMPT_SYSTEM_GUIDELINES},
+                        {"role": "user", "content": prompt_text},
+                    ],
+                    max_tokens=max_tokens,
+                    stream=False,
+                )
+            return _ollama_response_text(response)
+        except Exception:
+            logger.exception("Ollama chat model call failed.")
+            raise
+
     async with _model_lock:
         try:
             def _run():
@@ -523,6 +612,25 @@ async def _call_model_async(prompt_text: str, max_tokens: int = 512) -> str:
 
 async def _call_pdf_extractor_async(prompt_text: str, max_tokens: int = 380) -> str:
     await _async_load_models_and_index()  # ensure loaded
+
+    if not _use_llama_cpp_backend():
+        try:
+            async with _pdf_model_lock:
+                response = await asyncio.to_thread(
+                    _ollama_chat_sync,
+                    model=_ollama_extractor_model(),
+                    messages=[
+                        {"role": "system", "content": "You extract structured fields from technical documents. Return JSON only."},
+                        {"role": "user", "content": prompt_text},
+                    ],
+                    max_tokens=max_tokens,
+                    stream=False,
+                )
+            return _ollama_response_text(response)
+        except Exception:
+            logger.exception("Ollama extractor model call failed.")
+            raise
+
     await _async_load_pdf_extractor_model()
     model = pdf_llm or llm
     lock = _pdf_model_lock if model is pdf_llm else _model_lock
@@ -591,6 +699,59 @@ async def generate_answer_stream_async(query: str):
 
         prompt_text = _build_prompt(context_text, query)
         await _async_load_models_and_index()
+
+        if not _use_llama_cpp_backend():
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue[Tuple[str, Optional[str]]] = asyncio.Queue(maxsize=64)
+
+            def _producer():
+                response = None
+                try:
+                    response = _ollama_chat_sync(
+                        model=_ollama_chat_model(),
+                        messages=[
+                            {"role": "system", "content": PROMPT_SYSTEM_GUIDELINES},
+                            {"role": "user", "content": prompt_text},
+                        ],
+                        max_tokens=512,
+                        stream=True,
+                    )
+                    for line in response.iter_lines(decode_unicode=True):
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        message = data.get("message") if isinstance(data, dict) else None
+                        token = message.get("content") if isinstance(message, dict) else ""
+                        if token:
+                            cleaned = token.replace("<think>", "").replace("</think>", "")
+                            if cleaned:
+                                asyncio.run_coroutine_threadsafe(queue.put(("token", cleaned)), loop).result()
+                        if data.get("done"):
+                            break
+                except Exception as exc:
+                    asyncio.run_coroutine_threadsafe(queue.put(("error", str(exc))), loop).result()
+                finally:
+                    if response is not None:
+                        response.close()
+                    asyncio.run_coroutine_threadsafe(queue.put(("done", None)), loop).result()
+
+            async with _model_lock:
+                producer_task = asyncio.create_task(asyncio.to_thread(_producer))
+
+                try:
+                    while True:
+                        event, payload = await queue.get()
+                        if event == "token" and payload is not None:
+                            yield payload
+                            await asyncio.sleep(0)
+                            continue
+                        if event == "error":
+                            raise RuntimeError(payload or "Ollama stream failed")
+                        if event == "done":
+                            break
+                finally:
+                    await producer_task
+            return
 
         async with _model_lock:
             loop = asyncio.get_running_loop()

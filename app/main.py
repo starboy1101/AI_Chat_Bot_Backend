@@ -1,4 +1,5 @@
 import logging
+import os
 
 import uvicorn
 from fastapi import FastAPI
@@ -35,6 +36,9 @@ def root():
 
 @app.on_event("startup")
 async def startup_event():
+    if os.getenv("SKIP_MODEL_PRELOAD_ON_STARTUP", "").strip().lower() in {"1", "true", "yes", "on"}:
+        logger.info("Skipping model preload on startup because SKIP_MODEL_PRELOAD_ON_STARTUP is enabled.")
+        return
     try:
         await preload_models_for_startup()
         logger.info("Model preload completed.")

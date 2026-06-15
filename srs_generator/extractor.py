@@ -304,7 +304,10 @@ class RequirementExtractor:
             project_name=self._extract_project_name(parsed),
             version=self._extract_version(parsed.text),
             source_name=parsed.source_name,
-            system_overview=self._extract_section_text(parsed, {"overview", "system overview", "software overview"}),
+            system_overview=self._extract_section_text(
+                parsed,
+                {"overview", "system overview", "software overview", "overall description", "product perspective"},
+            ),
             scope=self._extract_section_text(parsed, {"scope"}),
             purpose=self._extract_section_text(parsed, {"purpose of the document", "purpose", "introduction"}),
             intended_audience=self._extract_section_text(parsed, {"intended audience", "audience"}),
@@ -1128,6 +1131,12 @@ class RequirementExtractor:
         }
 
     def _best_purpose_text(self, explicit_value: str, source_text: str, req_id: str, requirement_type: str) -> str:
+        colon_list_purpose = self._purpose_from_colon_list(source_text)
+        if colon_list_purpose and (
+            not explicit_value or compact_inline(explicit_value).endswith(":") or self._is_field_boundary_sentence(explicit_value)
+        ):
+            return colon_list_purpose
+
         source_sentences = self._requirement_sentences(source_text)
         explicit_sentences = self._requirement_sentences(explicit_value)
         candidates = explicit_sentences or source_sentences
@@ -1156,6 +1165,46 @@ class RequirementExtractor:
         if scored:
             return max(scored, key=lambda item: (item[0], -item[1]))[2]
         return normalize_space(explicit_value) or self._sentence_for(source_text, {"shall", "must", "should"}) or ""
+
+    def _purpose_from_colon_list(self, source_text: str) -> str:
+        lines = [normalize_space(line) for line in (source_text or "").splitlines() if normalize_space(line)]
+        for index, line in enumerate(lines):
+            lowered = line.lower()
+            if not re.search(r"\bshall\b", lowered) or not line.rstrip().endswith(":"):
+                continue
+            if any(cue in lowered for cue in VALIDATION_SENTENCE_CUES + ACCEPTANCE_SENTENCE_CUES):
+                continue
+            items: List[str] = []
+            for item in lines[index + 1 : index + 8]:
+                item_lower = item.lower().strip(":")
+                if REQ_ID_PATTERN.search(item) or self._is_field_boundary_sentence(item):
+                    break
+                if item_lower in {"input", "output", "example logic", "description", "expected result"}:
+                    break
+                if item and not item.endswith(":"):
+                    items.append(item.rstrip("."))
+                if len(items) >= 5:
+                    break
+            if not items:
+                continue
+
+            subject = line.rstrip(":").strip()
+            if subject.lower() in {"the system shall", "system shall"}:
+                return f"The system shall {self._join_list_items(items, lower_initial=True)}."
+            return f"{subject} {self._join_list_items(items, lower_initial=True)}."
+        return ""
+
+    def _join_list_items(self, items: List[str], lower_initial: bool = False) -> str:
+        cleaned = [normalize_space(item).rstrip(".") for item in items if normalize_space(item)]
+        if lower_initial:
+            cleaned = [item[:1].lower() + item[1:] if item else item for item in cleaned]
+        if not cleaned:
+            return ""
+        if len(cleaned) == 1:
+            return cleaned[0]
+        if len(cleaned) == 2:
+            return f"{cleaned[0]} and {cleaned[1]}"
+        return f"{', '.join(cleaned[:-1])}, and {cleaned[-1]}"
 
     def _requirement_sentences(self, text: str) -> List[str]:
         sentences: List[str] = []

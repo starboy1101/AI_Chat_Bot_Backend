@@ -20,7 +20,7 @@ def _missing_questions(project) -> list[dict[str, str]]:
 
     This is intentionally dormant for the current document-generation flow:
     production DOCX output must be generated without asking the user follow-up
-    questions, and missing values are rendered as "Yet to be filled". Keep this
+    questions, and missing values are completed through contextual inference. Keep this
     helper available for a future interactive review mode.
     """
     return []
