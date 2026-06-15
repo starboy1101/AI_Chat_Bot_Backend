@@ -1,0 +1,1540 @@
+{
+  "project_name": "Speed-Based Media Volume Control System",
+  "version": "1.0",
+  "document_title": "Software Requirement Specification",
+  "system_overview": "The system works as middleware between the vehicle speed signal and the audio management system. It receives vehicle speed data and adjusts the media volume accordingly using predefined rules.",
+  "scope": "The system monitors vehicle speed and dynamically changes the media volume level.\nIncluded Features-\nReal-time vehicle speed monitoring\nAutomatic media volume adjustment\nSmooth volume transition\nManual volume override\nBasic UI for speed and volume display\nLogging and debugging support",
+  "purpose": "The system aims to improve driver comfort and safety by reducing the need for manual volume adjustments during driving. The project is to develop a system that automatically adjusts the media volume in a vehicle based on the vehicle’s speed.",
+  "intended_audience": "Product stakeholders, software developers, integration engineers, test engineers, reviewers, and quality teams.",
+  "diagnostics": "Diagnostics include The system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+  "safety_requirements": [],
+  "cybersecurity_requirements": [],
+  "interfaces": {
+    "user": "Not specified.",
+    "hardware": "Not specified.",
+    "software": "Not specified."
+  },
+  "acceptance_criteria": "The SRS is accepted when all identified requirements are implemented, verified, and validated against the documented functional, performance, reliability, usability, safety, and constraint expectations.",
+  "operating_environment": "Vehicle infotainment system\nAndroid/Linux-based automotive platform\nAudio Manager APIs\nVehicle HAL / CAN Interface",
+  "assumptions": [
+    "Vehicle speed data is available.",
+    "Audio APIs are accessible.",
+    "System has permission to control media volume."
+  ],
+  "open_questions": [],
+  "requirements": [
+    {
+      "logical_block": "General",
+      "req_id": "FR-1",
+      "requirement_type": "functional",
+      "purpose": "The system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+      "inputs": "Vehicle speed signal",
+      "outputs": "Updated speed value",
+      "process": "Receive vehicle speed data from the vehicle interface and update the internal speed value continuously.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+      "acceptance_criteria": "Accepted when The system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface is demonstrated under the specified operating conditions and the expected output is observed: Updated speed value.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Vehicle speed signal); expected outputs (Updated speed value); triggering request/message/signal.",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+      "data_latency_period": "Fulfillment time is within the allocated control-loop or signal-processing cycle for this requirement.",
+      "data_retention_period": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+      "data_rate": "Data rate follows each relevant signal update or state-machine execution cycle.",
+      "external_events": "A sensor update, network/interface message, or connected subsystem state change triggers this functionality.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation constraints: conform to the referenced interface/API specification.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Updated speed value.",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+      "status": "Proposed",
+      "critical": false,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-1",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "Medium",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 38,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "inputs": {
+          "value": "Vehicle speed signal",
+          "confidence": 0.9,
+          "source_text": "Input\nVehicle speed signal",
+          "extraction_method": "explicit-label-span",
+          "fallback_reason": null
+        },
+        "outputs": {
+          "value": "Updated speed value",
+          "confidence": 0.9,
+          "source_text": "Output\nUpdated speed value",
+          "extraction_method": "explicit-label-span",
+          "fallback_reason": null
+        },
+        "purpose": {
+          "value": "The system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+          "confidence": 0.8,
+          "source_text": "The system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+          "extraction_method": "semantic-cue",
+          "fallback_reason": null
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface is demonstrated under the specified operating conditions and the expected output is observed: Updated speed value.",
+          "confidence": 0.68,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "process": {
+          "value": "Receive vehicle speed data from the vehicle interface and update the internal speed value continuously.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Vehicle speed signal); expected outputs (Updated speed value); triggering request/message/signal.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the allocated control-loop or signal-processing cycle for this requirement.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Data rate follows each relevant signal update or state-machine execution cycle.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "external_events": {
+          "value": "A sensor update, network/interface message, or connected subsystem state change triggers this functionality.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation constraints: conform to the referenced interface/API specification.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Updated speed value.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-1: Vehicle Speed Monitoring\nThe system shall continuously receive vehicle speed data from the Vehicle HAL/CAN interface.\nInput\nVehicle speed signal\nOutput\nUpdated speed value",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "General",
+      "req_id": "FR-2",
+      "requirement_type": "functional",
+      "purpose": "The system shall automatically adjust media volume based on vehicle speed.",
+      "inputs": "Vehicle speed signal from Vehicle HAL/CAN interface and current media volume level.",
+      "outputs": "Adjusted media volume level based on vehicle speed.",
+      "process": "Read vehicle speed, calculate the target media volume using predefined rules, and apply the volume change.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the system shall automatically adjust media volume based on vehicle speed.",
+      "acceptance_criteria": "Accepted when The system shall automatically adjust media volume based on vehicle speed is demonstrated under the specified operating conditions.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Vehicle speed signal from Vehicle HAL/CAN interface and current media volume level.); expected outputs (Adjusted media volume level based on vehicle speed.).",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain log/audit records according to the project diagnostic and data-retention policy.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall automatically adjust media volume based on vehicle speed.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Adjusted media volume level based on vehicle speed..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall automatically adjust media volume based on vehicle speed.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall automatically adjust media volume based on vehicle speed.",
+      "status": "Proposed",
+      "critical": false,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-2",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "Medium",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 45,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "purpose": {
+          "value": "The system shall automatically adjust media volume based on vehicle speed.",
+          "confidence": 0.8,
+          "source_text": "The system shall automatically adjust media volume based on vehicle speed.",
+          "extraction_method": "semantic-cue",
+          "fallback_reason": null
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The system shall automatically adjust media volume based on vehicle speed is demonstrated under the specified operating conditions.",
+          "confidence": 0.68,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Vehicle speed signal from Vehicle HAL/CAN interface and current media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Adjusted media volume level based on vehicle speed.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "process": {
+          "value": "Read vehicle speed, calculate the target media volume using predefined rules, and apply the volume change.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the system shall automatically adjust media volume based on vehicle speed.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall automatically adjust media volume based on vehicle speed.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Vehicle speed signal from Vehicle HAL/CAN interface and current media volume level.); expected outputs (Adjusted media volume level based on vehicle speed.).",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain log/audit records according to the project diagnostic and data-retention policy.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall automatically adjust media volume based on vehicle speed.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Adjusted media volume level based on vehicle speed..",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall automatically adjust media volume based on vehicle speed.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-2: Automatic Volume Adjustment\nThe system shall automatically adjust media volume based on vehicle speed.\nExample Logic",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "State-Machine",
+      "req_id": "FR-3",
+      "requirement_type": "functional",
+      "purpose": "The system shall gradually adjust volume to avoid sudden changes.",
+      "inputs": "Current media volume level and target media volume level.",
+      "outputs": "Smoothly transitioned media volume without abrupt changes.",
+      "process": "Calculate intermediate volume steps and apply them gradually until the target level is reached.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the system shall gradually adjust volume to avoid sudden changes.",
+      "acceptance_criteria": "Accepted when The system shall gradually adjust volume to avoid sudden changes is demonstrated under the specified operating conditions.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Current media volume level and target media volume level.); expected outputs (Smoothly transitioned media volume without abrupt changes.).",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are constrained by the applicable interface specification, configuration data, and operating-environment limits.",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall gradually adjust volume to avoid sudden changes.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Smoothly transitioned media volume without abrupt changes..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall gradually adjust volume to avoid sudden changes.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall gradually adjust volume to avoid sudden changes.",
+      "status": "Proposed",
+      "critical": false,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-3",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "Medium",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "State-Machine",
+        "source_block_index": 50,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "process": {
+          "value": "Calculate intermediate volume steps and apply them gradually until the target level is reached.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "purpose": {
+          "value": "The system shall gradually adjust volume to avoid sudden changes.",
+          "confidence": 0.8,
+          "source_text": "The system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "semantic-cue",
+          "fallback_reason": null
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The system shall gradually adjust volume to avoid sudden changes is demonstrated under the specified operating conditions.",
+          "confidence": 0.68,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Current media volume level and target media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Smoothly transitioned media volume without abrupt changes.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the system shall gradually adjust volume to avoid sudden changes.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall gradually adjust volume to avoid sudden changes.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Current media volume level and target media volume level.); expected outputs (Smoothly transitioned media volume without abrupt changes.).",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are constrained by the applicable interface specification, configuration data, and operating-environment limits.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall gradually adjust volume to avoid sudden changes.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Smoothly transitioned media volume without abrupt changes..",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall gradually adjust volume to avoid sudden changes.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-3: Smooth Volume Transition\nThe system shall gradually adjust volume to avoid sudden changes.",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "General",
+      "req_id": "FR-4",
+      "requirement_type": "functional",
+      "purpose": "Automatic adjustment shall pause temporarily",
+      "inputs": "Driver manual volume adjustment event and current automatic adjustment state.",
+      "outputs": "Automatic adjustment paused temporarily and driver-selected volume preserved.",
+      "process": "Detect manual volume changes, pause automatic adjustment temporarily, and preserve the user's selected volume.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that automatic adjustment shall pause temporarily.",
+      "acceptance_criteria": "Accepted when Automatic adjustment shall pause temporarily is demonstrated under the specified operating conditions.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Driver manual volume adjustment event and current automatic adjustment state.); expected outputs (Automatic adjustment paused temporarily and driver-selected volume preserved.).",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are constrained by the applicable interface specification, configuration data, and operating-environment limits.",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require automatic adjustment shall pause temporarily.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Automatic adjustment paused temporarily and driver-selected volume preserved..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that automatic adjustment shall pause temporarily.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that automatic adjustment shall pause temporarily.",
+      "status": "Proposed",
+      "critical": true,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-4",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "High",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 53,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "purpose": {
+          "value": "Automatic adjustment shall pause temporarily",
+          "confidence": 0.64,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when Automatic adjustment shall pause temporarily is demonstrated under the specified operating conditions.",
+          "confidence": 0.68,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Driver manual volume adjustment event and current automatic adjustment state.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Automatic adjustment paused temporarily and driver-selected volume preserved.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "process": {
+          "value": "Detect manual volume changes, pause automatic adjustment temporarily, and preserve the user's selected volume.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that automatic adjustment shall pause temporarily.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that automatic adjustment shall pause temporarily.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Driver manual volume adjustment event and current automatic adjustment state.); expected outputs (Automatic adjustment paused temporarily and driver-selected volume preserved.).",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are constrained by the applicable interface specification, configuration data, and operating-environment limits.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require automatic adjustment shall pause temporarily.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Automatic adjustment paused temporarily and driver-selected volume preserved..",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that automatic adjustment shall pause temporarily.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-4: Manual Override\nIf the driver manually changes volume:\nAutomatic adjustment shall pause temporarily\nUser preference shall be respected",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "General",
+      "req_id": "FR-5",
+      "requirement_type": "functional",
+      "purpose": "The system shall maintain minimum volume limit and maintain maximum volume limit.",
+      "inputs": "Calculated target media volume and configured minimum/maximum volume limits.",
+      "outputs": "Media volume constrained within configured minimum and maximum limits.",
+      "process": "Compare the target media volume against configured limits and clamp it within the allowed range.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+      "acceptance_criteria": "Accepted when The system shall maintain minimum volume limit and maintain maximum volume limit is demonstrated under the specified operating conditions while satisfying the stated limits: Maintain minimum volume limit.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Calculated target media volume and configured minimum/maximum volume limits.); expected outputs (Media volume constrained within configured minimum and maximum limits.); configured threshold/range/calibration values.",
+      "pre_loaded_values": "Approved calibration parameters, thresholds, and configuration values shall be pre-loaded before this function executes.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Maintain minimum volume limit\nMaintain maximum volume limit",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall maintain minimum volume limit and maintain maximum volume limit.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Media volume constrained within configured minimum and maximum limits..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+      "status": "Proposed",
+      "critical": true,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-5",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "High",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 58,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "purpose": {
+          "value": "The system shall maintain minimum volume limit and maintain maximum volume limit.",
+          "confidence": 0.64,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "valid_range_of_values": {
+          "value": "Maintain minimum volume limit\nMaintain maximum volume limit",
+          "confidence": 0.78,
+          "source_text": "Maintain maximum volume limit",
+          "extraction_method": "semantic-cue",
+          "fallback_reason": null
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The system shall maintain minimum volume limit and maintain maximum volume limit is demonstrated under the specified operating conditions while satisfying the stated limits: Maintain minimum volume limit.",
+          "confidence": 0.68,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Calculated target media volume and configured minimum/maximum volume limits.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Media volume constrained within configured minimum and maximum limits.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "process": {
+          "value": "Compare the target media volume against configured limits and clamp it within the allowed range.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Calculated target media volume and configured minimum/maximum volume limits.); expected outputs (Media volume constrained within configured minimum and maximum limits.); configured threshold/range/calibration values.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "Approved calibration parameters, thresholds, and configuration values shall be pre-loaded before this function executes.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall maintain minimum volume limit and maintain maximum volume limit.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Media volume constrained within configured minimum and maximum limits..",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall maintain minimum volume limit and maintain maximum volume limit.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-5: Volume Threshold Protection\nThe system shall:\nMaintain minimum volume limit\nMaintain maximum volume limit",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "General",
+      "req_id": "FR-6",
+      "requirement_type": "functional",
+      "purpose": "The UI shall display current vehicle speed and current media volume level.",
+      "inputs": "Sensor measurements, configured thresholds, and current operating state.",
+      "outputs": "Validated measured value, derived state, threshold decision, control response, or diagnostic status.",
+      "process": "Read current speed and media volume data, then update the user interface display.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the UI shall display current vehicle speed and current media volume level.",
+      "acceptance_criteria": "Accepted when The UI shall display current vehicle speed and current media volume level is demonstrated under the specified operating conditions.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Sensor measurements, configured thresholds, and current operating state.); expected outputs (Validated measured value, derived state, threshold decision, control response, or diagnostic status.).",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the UI shall display current vehicle speed and current media volume level.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Validated measured value, derived state, threshold decision, control response, or diagnostic status..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the UI shall display current vehicle speed and current media volume level.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the UI shall display current vehicle speed and current media volume level.",
+      "status": "Proposed",
+      "critical": false,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-6",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "Medium",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 63,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "purpose": {
+          "value": "The UI shall display current vehicle speed and current media volume level.",
+          "confidence": 0.64,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The UI shall display current vehicle speed and current media volume level is demonstrated under the specified operating conditions.",
+          "confidence": 0.68,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Sensor measurements, configured thresholds, and current operating state.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Validated measured value, derived state, threshold decision, control response, or diagnostic status.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "process": {
+          "value": "Read current speed and media volume data, then update the user interface display.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the UI shall display current vehicle speed and current media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the UI shall display current vehicle speed and current media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Sensor measurements, configured thresholds, and current operating state.); expected outputs (Validated measured value, derived state, threshold decision, control response, or diagnostic status.).",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain runtime data only for the active transaction unless project diagnostics, logging, or configuration storage requires longer retention.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the UI shall display current vehicle speed and current media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Validated measured value, derived state, threshold decision, control response, or diagnostic status..",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the UI shall display current vehicle speed and current media volume level.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-6: UI Display\nThe UI shall display:\nCurrent vehicle speed\nCurrent media volume level",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    },
+    {
+      "logical_block": "General",
+      "req_id": "FR-7",
+      "requirement_type": "functional",
+      "purpose": "The system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+      "inputs": "Speed changes, volume adjustments, manual override events, and system error events.",
+      "outputs": "Log entries for speed changes, volume adjustments, manual overrides, and system errors.",
+      "process": "Capture speed, volume, manual override, and error events, then write them to the system log.",
+      "validation": "Verify by review, unit testing, integration testing, or system testing that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+      "acceptance_criteria": "Accepted when The system shall log speed changes, volume adjustments, manual overrides, and system errors is demonstrated under the specified operating conditions.",
+      "derived_requirement": "No derived requirement identified.",
+      "access_restrictions": "No specific access restrictions identified.",
+      "mandatory_fields": "Mandatory fields: inputs (Speed changes, volume adjustments, manual override events, and system error events.); expected outputs (Log entries for speed changes, volume adjustments, manual overrides, and system errors.).",
+      "pre_loaded_values": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+      "default_values": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+      "valid_range_of_values": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+      "data_latency_period": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+      "data_retention_period": "Retain log/audit records according to the project diagnostic and data-retention policy.",
+      "data_rate": "Transaction rate is event-driven and occurs for each valid external request or command.",
+      "external_events": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+      "temporal_events": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+      "constraints": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+      "effects_on_other_systems": "Affects downstream components or users that consume the requirement output: Log entries for speed changes, volume adjustments, manual overrides, and system errors..",
+      "assumptions": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+      "failure_scenario": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+      "action_on_failure": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+      "testability": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+      "status": "Proposed",
+      "critical": true,
+      "feasible": true,
+      "comments": "Completed from source context and requirement-level engineering inference.",
+      "attachments": [],
+      "metadata": {
+        "customer_req_id": "FR-7",
+        "milestone": "Applicable to the current planned project release.",
+        "priority": "High",
+        "asil": null,
+        "cal": null,
+        "can_ids": [],
+        "sds_references": [],
+        "source_section": "General",
+        "source_block_index": 68,
+        "extraction_method": "semantic-text",
+        "evidence": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+        "confidence": 0.86
+      },
+      "field_evidence": {
+        "purpose": {
+          "value": "The system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.64,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "acceptance_criteria": {
+          "value": "Accepted when The system shall log speed changes, volume adjustments, manual overrides, and system errors is demonstrated under the specified operating conditions.",
+          "confidence": 0.68,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "inferred-field",
+          "fallback_reason": "Inferred from nearby requirement evidence"
+        },
+        "inputs": {
+          "value": "Speed changes, volume adjustments, manual override events, and system error events.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "outputs": {
+          "value": "Log entries for speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "process": {
+          "value": "Capture speed, volume, manual override, and error events, then write them to the system log.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "validation": {
+          "value": "Verify by review, unit testing, integration testing, or system testing that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "testability": {
+          "value": "Yes. Test during unit, integration, and system validation by executing requirement-level test cases and confirming that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "mandatory_fields": {
+          "value": "Mandatory fields: inputs (Speed changes, volume adjustments, manual override events, and system error events.); expected outputs (Log entries for speed changes, volume adjustments, manual overrides, and system errors.).",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "pre_loaded_values": {
+          "value": "No source-specific pre-loaded values are identified; use approved project configuration and interface initialization values where applicable.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "default_values": {
+          "value": "Use project-approved default values for optional configuration; mandatory runtime values must be supplied or validated before processing.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "valid_range_of_values": {
+          "value": "Valid values are the calibrated sensor/interface range and threshold limits defined for the target operating environment.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_latency_period": {
+          "value": "Fulfillment time is within the project-defined transaction or task scheduling budget for this function.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_retention_period": {
+          "value": "Retain log/audit records according to the project diagnostic and data-retention policy.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "data_rate": {
+          "value": "Transaction rate is event-driven and occurs for each valid external request or command.",
+          "confidence": 0.52,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-default",
+          "fallback_reason": "Completed from requirement context and engineering inference"
+        },
+        "external_events": {
+          "value": "Relevant external user actions, interface messages, commands, or subsystem state changes that require the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "temporal_events": {
+          "value": "Periodic scheduling and timeout monitoring apply when required by the software architecture or interface timing.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "constraints": {
+          "value": "Implementation must satisfy the documented operating environment, interface contracts, timing budgets, safety/security rules, and project delivery constraints.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "effects_on_other_systems": {
+          "value": "Affects downstream components or users that consume the requirement output: Log entries for speed changes, volume adjustments, manual overrides, and system errors..",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "assumptions": {
+          "value": "Input signals, referenced interfaces, configuration data, and dependent services are available under the documented operating conditions.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "failure_scenario": {
+          "value": "Failure occurs if required inputs are invalid, unavailable, delayed, or out of range, preventing the system from confirming that the system shall log speed changes, volume adjustments, manual overrides, and system errors.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "action_on_failure": {
+          "value": "On failure, reject invalid input where applicable, preserve or move to a safe/default state, report the fault, and make diagnostic evidence available for verification.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        },
+        "comments": {
+          "value": "Completed from source context and requirement-level engineering inference.",
+          "confidence": 0.62,
+          "source_text": "FR-7: Logging\nThe system shall log:\nSpeed changes\nVolume adjustments\nManual overrides\nSystem errors",
+          "extraction_method": "contextual-inference",
+          "fallback_reason": "Inferred from requirement text and document context"
+        }
+      }
+    }
+  ],
+  "revision_history": [],
+  "definitions": [],
+  "references": [],
+  "extraction_passes": {
+    "pass_1_sections": 19,
+    "pass_2_requirement_blocks": 7,
+    "pass_3_table_requirements": 0,
+    "pass_3_text_requirements": 7,
+    "revision_history_entries": 0,
+    "definitions": 0,
+    "references": 0,
+    "fallback_fields": [
+      {
+        "target": "requirement",
+        "req_id": "FR-2",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-3",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-4",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-5",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-6",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-7",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      }
+    ],
+    "auto_completed_fields": [
+      {
+        "target": "requirement",
+        "req_id": "FR-2",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-3",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-4",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-5",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-6",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      },
+      {
+        "target": "requirement",
+        "req_id": "FR-7",
+        "field": "data_rate",
+        "reason": "Missing or unresolved field"
+      }
+    ]
+  },
+  "validation_findings": [],
+  "source_name": "Speed-Based Media Volume Control System(SRS).docx",
+  "generated_at": "2026-06-01T09:40:17.944779",
+  "confidence": 0.797
+}

@@ -15,3 +15,16 @@ pypdf
 requests
 bcrypt==4.0.1
 reportlab
+python-docx
+docxtpl
+pdfplumber
+pymupdf
+pydantic
+rapidfuzz
+spacy
+pandas
+openpyxl
+lxml
+pillow
+tqdm
+structlog

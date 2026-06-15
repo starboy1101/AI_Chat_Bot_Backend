@@ -2,7 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
-
+venv/
 # FAISS / vector db
 faiss_db/
 *.faiss

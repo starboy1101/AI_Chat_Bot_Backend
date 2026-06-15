@@ -1,51 +1,54 @@
----
-title: Audio Chat Backend
-emoji: 🎧
-colorFrom: indigo
-colorTo: blue
-sdk: docker
-app_file: server.py
-pinned: false
----
+# Audio Chat Backend (SwarAI)
 
-# 🎧 Audio Chat Backend (SwarAI)
+FastAPI backend for SwarAI, focused on audio-domain chat and requirement collection.
 
-This Hugging Face Space hosts the **FastAPI backend** for the SwarAI audio assistant —  
-an intelligent agent specialized in **Windows Audio Architecture**, including:
-
-- 🪟 **WASAPI** (Windows Audio Session API)  
-- 🎚️ **IAudioClient / IAudioClient3** interfaces  
-- 🎛️ **Audio Processing Objects (APOs)**  
-- 🔉 Audio driver frameworks and DSP-level optimization  
-
----
-
-## 🚀 Features
-
-- **Chat Endpoint (`/chat`)**  
-  Handles structured conversations and natural-language questions about audio APIs and system design.  
-
-- **FAISS + Supabase Integration**  
-  Stores vectorized Q&A history and retrieves relevant context to improve accuracy.  
-
-- **Local or Remote LLM Support**  
-  Uses `llama-cpp-python` with `.gguf` models hosted on Hugging Face Hub  
-  (`Omkar1803/mistral-7b-gguf`).  
-
-- **CORS-enabled FastAPI Server**  
-  Ready to connect directly with your React/Tailwind frontend chat UI.
-
----
-
-## 🧩 Endpoints
+## Endpoints
 
 | Method | Endpoint | Description |
-|--------|-----------|-------------|
-| `GET`  | `/` | Health check – returns `"✅ Audio Chatbot API is running!"` |
-| `POST` | `/chat` | Main endpoint – accepts a JSON body: <br> `{ "message": "your query", "user_id": "optional_id" }` |
+| --- | --- | --- |
+| `GET` | `/` | Health check |
+| `POST` | `/chats/chat` | SSE character stream (`text/event-stream`, `data: ...`) |
+| `POST` | `/chats/chat_stream` | SSE character stream (`text/event-stream`, `data: ...`) |
 
-Example `curl` test:
-```bash
-curl -X POST "https://Omkar1803-audio-chat-backend.hf.space/chat" \
--H "Content-Type: application/json" \
--d "{\"message\": \"What is IAudioClient?\", \"user_id\": \"test_user\"}"
+## Local AI SRS Regeneration
+
+The normal SRS generator remains the first-pass generator. After it creates the DOCX, the chat flow can ask whether to generate a second local AI version and compare both outputs.
+
+For faster SRS regeneration on a Google Colab T4, run `colab_qwen25_srs_api.py` in Colab and configure the backend with the ngrok URL it prints:
+
+```env
+COLAB_SRS_BASE_URL=https://your-current-ngrok-url.ngrok-free.app
+COLAB_SRS_ENDPOINT=/generate-srs
+COLAB_SRS_MODEL=qwen2.5:7b
+COLAB_SRS_NUM_CTX=8192
+COLAB_SRS_NUM_PREDICT=2500
+COLAB_SRS_TIMEOUT_SECONDS=1800
+# Optional, if SRS_API_KEY is set in Colab:
+COLAB_SRS_API_KEY=shared-secret
+```
+
+When `COLAB_SRS_BASE_URL` is present, only the SRS AI regeneration call uses the Colab FastAPI API. Normal chat continues to use the existing backend/Ollama chat path.
+
+If Colab is not configured, the SRS AI regeneration can still fall back to an Ollama-compatible API:
+
+```env
+LOCAL_AI_SRS_BASE_URL=http://localhost:11434
+LOCAL_AI_SRS_TEXT_MODEL=qwen2.5:7b
+LOCAL_AI_SRS_HELPER_MODEL=qwen2.5:7b
+LOCAL_AI_SRS_NUM_CTX=8192
+LOCAL_AI_SRS_MAX_CONTEXT_CHARS=24000
+LOCAL_AI_SRS_TIMEOUT_SECONDS=1800
+LOCAL_AI_SRS_KEEP_ALIVE=10m
+LOCAL_AI_SRS_NUM_GPU=-1
+LOCAL_AI_SRS_MAIN_GPU=0
+```
+
+The SRS AI pass uses `qwen2.5:7b` by default and keeps this model selection separate from normal chat. It uses requirement-aware BM25/source excerpt selection before asking the model for structured SRS JSON, then completes any remaining SRS table fields from source context and engineering inference instead of leaving template placeholders.
+
+## SSE Frontend Example
+
+A ready-to-use React example is included at:
+
+- `frontend_sse_chat_example.tsx`
+
+It is wired to `POST /chats/chat_stream` and streams incremental `data: ...` chunks (one character per event).

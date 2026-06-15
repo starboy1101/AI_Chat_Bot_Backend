@@ -1,0 +1,4 @@
+master_template: srs_generator/templates/srs_template.docx
+output_dir: srs_generator/output_docs
+json_dir: srs_generator/extracted_json
+minimum_requirement_confidence: "0.55"

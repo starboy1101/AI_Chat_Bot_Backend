@@ -1,0 +1,17 @@
+python-docx
+docxtpl
+pdfplumber
+pymupdf
+pydantic
+rapidfuzz
+sentence-transformers
+spacy
+pandas
+openpyxl
+lxml
+pillow
+tqdm
+structlog
+fastapi
+uvicorn
+python-multipart
